@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8"/>
-  <title>Поля и Потоки — v0.3</title>
+  <title>Поля и Потоки — v0.3.1</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <style>
     :root{
@@ -34,6 +34,7 @@
       gap: 10px;
       align-items: center;
       pointer-events: none;
+      z-index: 20;
     }
 
     .pill{
@@ -64,9 +65,7 @@
       border-radius: 8px;
       font-size: 12px;
     }
-    .pill.light .kbd{
-      border-color: rgba(0,0,0,.18);
-    }
+    .pill.light .kbd{ border-color: rgba(0,0,0,.18); }
 
     /* Кнопка режима */
     .mode-toggle {
@@ -95,37 +94,51 @@
       color: var(--ui-txt-light);
     }
 
-    /* Боковая панель */
+    /* Плавающая панель рядом с объектом */
     .panel{
       position: fixed;
+      left: 12px;
       top: 12px;
-      bottom: 12px;
-      right: 12px;
-      width: min(380px, calc(100vw - 24px));
-      border-radius: 20px;
+
+      width: 340px;
+      max-width: calc(100vw - 24px);
+
+      height: auto;
+      max-height: min(520px, 70vh);
+      overflow: auto;
+
+      border-radius: 18px;
       backdrop-filter: blur(10px);
-      border: 1px solid var(--ui-brd-dark);
-      background: rgba(10,14,28,0.58);
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(10,14,28,0.62);
       color: #eaf2ff;
+
       padding: 14px;
       box-sizing: border-box;
-      transform: translateX(110%);
-      transition: transform .22s ease;
+
+      opacity: 0;
+      transform: translate3d(0,0,0) scale(0.98);
+      pointer-events: none;
+
+      transition: opacity .16s ease, transform .16s ease;
       z-index: 40;
-      overflow: hidden;
     }
-    .panel.open{ transform: translateX(0); }
+    .panel.open{
+      opacity: 1;
+      transform: translate3d(0,0,0) scale(1);
+      pointer-events: auto;
+    }
     .panel.light{
-      background: rgba(255,255,255,0.72);
-      border: 1px solid var(--ui-brd-light);
+      background: rgba(255,255,255,0.80);
+      border: 1px solid rgba(0,0,0,0.12);
       color: #111;
     }
 
     .panel h3{
-      margin: 4px 0 10px;
+      margin: 0;
       font-size: 14px;
-      opacity: .9;
-      font-weight: 650;
+      opacity: .95;
+      font-weight: 700;
     }
 
     .row{
@@ -165,7 +178,7 @@
       border-color: rgba(0,0,0,0.14);
       background: rgba(0,0,0,0.03);
     }
-    .textarea{ min-height: 140px; resize: vertical; }
+    .textarea{ min-height: 120px; resize: vertical; }
 
     .muted{
       opacity: .7;
@@ -237,7 +250,7 @@
       white-space: nowrap;
     }
 
-    /* Небольшие подсказки */
+    /* Подсказки */
     .hint{
       position: fixed;
       left: 12px;
@@ -278,12 +291,12 @@
 <div class="mode-toggle" id="modeToggle" title="Переключить состояние">◐</div>
 
 <div class="panel" id="panel">
-  <div class="row" style="justify-content: space-between;">
-    <h3 id="panelTitle" style="margin:0;">…</h3>
+  <div class="row" style="justify-content: space-between; margin-top:0;">
+    <h3 id="panelTitle">…</h3>
     <button class="btn" id="panelClose">Закрыть</button>
   </div>
 
-  <div class="muted" id="panelMeta"></div>
+  <div class="muted" id="panelMeta" style="margin-top:6px;"></div>
 
   <div style="height:10px;"></div>
 
@@ -297,7 +310,7 @@
 
   <div style="height:12px;"></div>
 
-  <div class="row" style="justify-content: space-between;">
+  <div class="row" style="justify-content: space-between; margin-bottom:0;">
     <button class="btn" id="btnFocus">Прыжок к объекту</button>
     <button class="btn" id="btnDelete">Удалить</button>
   </div>
@@ -322,14 +335,10 @@
 
 <script>
 /* =========================================================
-   Поля и Потоки v0.3
-   - Перетаскивание объектов
-   - Панорама и зум
-   - Создание ядер/узлов (двойной клик)
-   - Боковая панель редактирования
-   - Поиск Ctrl+K (прыжок)
-   - localStorage сохранение
-   - Живой фон (deep/focus)
+   v0.3.1
+   - Прыжок к объекту теперь zoom+pan (к узлам ближе)
+   - Панель появляется рядом с выбранным кружком
+   - Панель по контенту (без гигантской высоты)
 ========================================================= */
 
 const canvas = document.getElementById("field");
@@ -345,7 +354,6 @@ const elEditBody = document.getElementById("editBody");
 const elBtnFocus = document.getElementById("btnFocus");
 const elBtnDelete = document.getElementById("btnDelete");
 
-const elTopbar = document.getElementById("topbar");
 const elPillHelp = document.getElementById("pillHelp");
 const elPillSearch = document.getElementById("pillSearch");
 const elHint = document.getElementById("hint");
@@ -361,11 +369,8 @@ function uid(prefix="id"){ return prefix + "_" + Math.random().toString(16).slic
 
 let mode = "deep"; // deep | focus
 
-/* ---------- Камера (панорама/зум) ---------- */
-let view = {
-  x: 0, y: 0,   // смещение мира
-  z: 1.0        // zoom
-};
+/* ---------- Камера ---------- */
+let view = { x: 0, y: 0, z: 1.0 };
 
 /* ---------- DPI ---------- */
 let w=0,h=0,cx=0,cy=0,DPR=1;
@@ -380,35 +385,30 @@ function resize(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
   cx = w/2; cy = h/2;
 
-  // UI light/dark
   syncUITheme();
   initParticles();
+
+  // если панель открыта — перепозиционировать
+  if(elPanel.classList.contains("open")) positionPanelNearSelected();
 }
 window.addEventListener("resize", resize);
 
 /* ---------- Данные ---------- */
-const STORAGE_KEY = "fields_flows_v03";
+const STORAGE_KEY = "fields_flows_v031";
 
-let state = {
-  cores: [],
-  nodes: [],
-  edges: [] // связи ядро-узел и ядро-ядро (пока используем ядро->узел)
-};
+let state = { cores: [], nodes: [], edges: [] };
+let selected = null; // {type,id}
 
-// выбрать объект
-let selected = null; // {type:'core'|'node', id:...}
-
-/* ---------- Инициализация по умолчанию ---------- */
+/* ---------- Default ---------- */
 function defaultState(){
   const c1 = {id: uid("core"), title:"Основы", body:"", x: -220, y: -80, r: 26};
-  const c2 = {id: uid("core"), title:"Практика", body:"", x: 180, y: -120, r: 22};
-  const c3 = {id: uid("core"), title:"Идеи", body:"", x: 120, y: 140, r: 28};
-  const c4 = {id: uid("core"), title:"Личное", body:"", x: -160, y: 160, r: 20};
-
+  const c2 = {id: uid("core"), title:"Практика", body:"", x:  180, y:-120, r: 22};
+  const c3 = {id: uid("core"), title:"Идеи",    body:"", x:  120, y: 140, r: 28};
+  const c4 = {id: uid("core"), title:"Личное",  body:"", x: -160, y: 160, r: 20};
   return {
-    cores: [c1,c2,c3,c4],
-    nodes: [],
-    edges: [
+    cores:[c1,c2,c3,c4],
+    nodes:[],
+    edges:[
       {a:c1.id,b:c2.id,type:"flow"},
       {a:c2.id,b:c3.id,type:"flow"},
       {a:c3.id,b:c4.id,type:"flow"},
@@ -422,46 +422,33 @@ function load(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if(!raw){
       state = defaultState();
-      // центрируем мир: чтобы дефолтные координаты были вокруг центра
       view.x = cx; view.y = cy; view.z = 1.0;
       save();
       return;
     }
     state = JSON.parse(raw);
-    // базовая защита
     if(!state || !Array.isArray(state.cores) || !Array.isArray(state.nodes) || !Array.isArray(state.edges)){
       state = defaultState();
     }
-    // если камеры не было — центрируем
-    if(!state._view){
-      view.x = cx; view.y = cy; view.z = 1.0;
-    } else {
-      view = state._view;
-    }
+    if(state._view) view = state._view;
+    else { view.x=cx; view.y=cy; view.z=1.0; }
   } catch(e){
     state = defaultState();
-    view.x = cx; view.y = cy; view.z = 1.0;
+    view.x=cx; view.y=cy; view.z=1.0;
   }
 }
 
 function save(){
-  // сохраняем и камеру тоже
   state._view = view;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-/* ---------- Координаты: экран <-> мир ---------- */
+/* ---------- Координаты ---------- */
 function worldToScreen(wx, wy){
-  return {
-    x: (wx * view.z) + view.x,
-    y: (wy * view.z) + view.y
-  };
+  return { x: (wx*view.z)+view.x, y: (wy*view.z)+view.y };
 }
 function screenToWorld(sx, sy){
-  return {
-    x: (sx - view.x) / view.z,
-    y: (sy - view.y) / view.z
-  };
+  return { x: (sx-view.x)/view.z, y: (sy-view.y)/view.z };
 }
 
 /* ---------- Фон: частицы ---------- */
@@ -494,9 +481,7 @@ function drawBackground(t){
   const grd = ctx.createRadialGradient(
     cx + (mode==="deep" ? (breathe-0.5)*30 : (breathe-0.5)*18),
     cy + (mode==="deep" ? (0.5-breathe)*24 : (0.5-breathe)*14),
-    120,
-    cx, cy,
-    Math.max(w,h)
+    120, cx, cy, Math.max(w,h)
   );
   if(mode==="deep"){
     grd.addColorStop(0, "#0b1022");
@@ -571,12 +556,12 @@ function updateAndDrawParticles(list, layer, t){
   }
 }
 
-/* ---------- Рендер мира ---------- */
+/* ---------- Доступ к объектам ---------- */
 function getCore(id){ return state.cores.find(c=>c.id===id); }
 function getNode(id){ return state.nodes.find(n=>n.id===id); }
 
+/* ---------- Рендер мира ---------- */
 function drawFlows(t){
-  // связи между ядрами (flow)
   ctx.lineWidth = (mode==="deep") ? 1.2 : 1.8;
   ctx.strokeStyle = (mode==="deep")
     ? "rgba(140,180,255,0.26)"
@@ -589,20 +574,14 @@ function drawFlows(t){
 
     const As = worldToScreen(A.x, A.y);
     const Bs = worldToScreen(B.x, B.y);
-
     const sway = Math.sin(t*0.02 + (As.x+Bs.x)*0.001)*20 + Math.sin(t*0.006 + (As.y+Bs.y)*0.001)*10;
 
     ctx.beginPath();
     ctx.moveTo(As.x, As.y);
-    ctx.quadraticCurveTo(
-      (As.x+Bs.x)/2 + sway,
-      (As.y+Bs.y)/2 - sway,
-      Bs.x, Bs.y
-    );
+    ctx.quadraticCurveTo((As.x+Bs.x)/2 + sway, (As.y+Bs.y)/2 - sway, Bs.x, Bs.y);
     ctx.stroke();
   }
 
-  // связи core->node (тоньше)
   ctx.lineWidth = (mode==="deep") ? 1.0 : 1.4;
   ctx.strokeStyle = (mode==="deep")
     ? "rgba(140,180,255,0.18)"
@@ -630,15 +609,13 @@ function drawCores(t){
 
     const fill = (mode==="deep") ? "rgba(120,160,255,0.88)" : "rgba(55,75,155,0.96)";
     const ring = (mode==="deep") ? "rgba(180,210,255,0.22)" : "rgba(55,75,155,0.24)";
-
-    // выделение
     const isSel = selected && selected.type==="core" && selected.id===c.id;
 
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, r + pulse, 0, Math.PI*2);
     ctx.fillStyle = fill;
     ctx.shadowColor = fill;
-    ctx.shadowBlur = (mode==="deep"?22:16) + (isSel ? 10 : 0);
+    ctx.shadowBlur = (mode==="deep"?22:16) + (isSel ? 12 : 0);
     ctx.fill();
     ctx.shadowBlur = 0;
 
@@ -648,7 +625,6 @@ function drawCores(t){
     ctx.arc(pos.x, pos.y, r + pulse + (mode==="deep"?10:9), 0, Math.PI*2);
     ctx.stroke();
 
-    // имя (UI-логика на Canvas — ок, потому что без супер-зумов)
     const label = c.title || "…";
     ctx.font = `${Math.max(12, 12*view.z)}px system-ui`;
     ctx.fillStyle = (mode==="deep") ? "rgba(234,242,255,0.78)" : "rgba(20,25,40,0.72)";
@@ -665,20 +641,17 @@ function drawNodes(t){
 
     const pos = worldToScreen(n.x, n.y);
     const r = (n.r ?? 10) * view.z;
-
     const isSel = selected && selected.type==="node" && selected.id===n.id;
 
-    // узел — маленький световой сгусток
     const fill = (mode==="deep") ? "rgba(170,205,255,0.70)" : "rgba(75,90,155,0.70)";
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, r + pulse, 0, Math.PI*2);
     ctx.fillStyle = fill;
     ctx.shadowColor = fill;
-    ctx.shadowBlur = (mode==="deep"?14:10) + (isSel?10:0);
+    ctx.shadowBlur = (mode==="deep"?14:10) + (isSel?12:0);
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // подпись узла (коротко)
     const label = n.title || "…";
     ctx.font = `${Math.max(11, 11*view.z)}px system-ui`;
     ctx.fillStyle = (mode==="deep") ? "rgba(234,242,255,0.70)" : "rgba(20,25,40,0.60)";
@@ -688,9 +661,8 @@ function drawNodes(t){
   }
 }
 
-/* ---------- Хит-тест (клики по объектам) ---------- */
+/* ---------- Hit-test ---------- */
 function hitTest(sx, sy){
-  // проверяем узлы первыми (они маленькие, но обычно поверх)
   for(let i=state.nodes.length-1;i>=0;i--){
     const n = state.nodes[i];
     const p = worldToScreen(n.x, n.y);
@@ -708,39 +680,30 @@ function hitTest(sx, sy){
   return null;
 }
 
-/* ---------- Создание объектов ---------- */
+/* ---------- Создание ---------- */
 function createCoreAtWorld(wx, wy){
   const c = {id: uid("core"), title:"Новый мир", body:"", x: wx, y: wy, r: 24};
   state.cores.push(c);
   save();
   select({type:"core", id:c.id});
-  openPanel();
+  openPanel(true);
 }
 function createNodeForCore(coreId){
   const c = getCore(coreId);
   if(!c) return;
   const angle = rand(0, Math.PI*2);
   const dist = rand(70, 110);
-  const n = {
-    id: uid("node"),
-    coreId,
-    title: "Мысль",
-    body: "",
-    x: c.x + Math.cos(angle)*dist,
-    y: c.y + Math.sin(angle)*dist,
-    r: 10
-  };
+  const n = { id: uid("node"), coreId, title: "Мысль", body: "", x: c.x + Math.cos(angle)*dist, y: c.y + Math.sin(angle)*dist, r: 10 };
   state.nodes.push(n);
   save();
   select({type:"node", id:n.id});
-  openPanel();
+  openPanel(true);
 }
 
-/* ---------- Панель ---------- */
+/* ---------- UI theme ---------- */
 function syncUITheme(){
   const isLight = mode==="focus";
   elToggle.classList.toggle("light", isLight);
-
   elPanel.classList.toggle("light", isLight);
   elSearchBox.classList.toggle("light", isLight);
   elPillHelp.classList.toggle("light", isLight);
@@ -748,19 +711,17 @@ function syncUITheme(){
   elHint.classList.toggle("light", isLight);
 }
 
+/* ---------- Панель: выбор/позиционирование ---------- */
 function select(sel){
   selected = sel;
-  if(!selected){
-    closePanel();
-    return;
-  }
+  if(!selected){ closePanel(); return; }
 
   let obj, meta = "";
   if(sel.type==="core"){
     obj = getCore(sel.id);
     const count = state.nodes.filter(n=>n.coreId===sel.id).length;
     meta = `Ядро • мыслей: ${count}`;
-  }else{
+  } else {
     obj = getNode(sel.id);
     const c = obj ? getCore(obj.coreId) : null;
     meta = `Узел • внутри ядра: ${c ? (c.title||"…") : "—"}`;
@@ -768,21 +729,67 @@ function select(sel){
 
   elPanelTitle.textContent = obj ? (obj.title || "…") : "…";
   elPanelMeta.textContent = meta;
-
   elEditTitle.value = obj?.title ?? "";
   elEditBody.value  = obj?.body ?? "";
 }
 
-function openPanel(){
+function openPanel(forceReposition=false){
   elPanel.classList.add("open");
+  if(forceReposition) positionPanelNearSelected();
 }
+
 function closePanel(){
   elPanel.classList.remove("open");
 }
 elPanelClose.onclick = closePanel;
 
-/* Автосохранение из полей */
-let editTimer = null;
+/* Панель рядом с выбранным объектом */
+function positionPanelNearSelected(){
+  if(!selected) return;
+
+  // мобильный режим: если экран узкий — закрепим снизу, чтобы не мешало
+  const mobile = window.innerWidth < 520;
+  if(mobile){
+    elPanel.style.left = "12px";
+    elPanel.style.top = "";
+    elPanel.style.bottom = "12px";
+    elPanel.style.right = "";
+    elPanel.style.width = "calc(100vw - 24px)";
+    return;
+  }
+
+  // десктоп: появление рядом с кружком
+  elPanel.style.bottom = "";
+  elPanel.style.width = "340px";
+
+  const obj = selected.type==="core" ? getCore(selected.id) : getNode(selected.id);
+  if(!obj) return;
+
+  const p = worldToScreen(obj.x, obj.y);
+
+  // сдвиг панели относительно кружка
+  const gap = 14;
+  const panelW = Math.min(340, window.innerWidth - 24);
+  const panelH = elPanel.getBoundingClientRect().height || 260;
+
+  // предпочитаем справа, но если нет места — слева
+  let left = p.x + gap;
+  if(left + panelW > window.innerWidth - 12){
+    left = p.x - gap - panelW;
+  }
+
+  // вертикально — чуть выше центра объекта
+  let top = p.y - Math.min(panelH*0.35, 140);
+
+  // clamp в пределах экрана
+  left = clamp(left, 12, window.innerWidth - 12 - panelW);
+  top  = clamp(top, 12, window.innerHeight - 12 - panelH);
+
+  elPanel.style.left = left + "px";
+  elPanel.style.top  = top + "px";
+}
+
+let editTimer=null;
 function scheduleEditSave(){
   clearTimeout(editTimer);
   editTimer = setTimeout(()=>{
@@ -791,36 +798,28 @@ function scheduleEditSave(){
       const c = getCore(selected.id); if(!c) return;
       c.title = elEditTitle.value.trim() || "…";
       c.body  = elEditBody.value || "";
-    }else{
+    } else {
       const n = getNode(selected.id); if(!n) return;
       n.title = elEditTitle.value.trim() || "…";
       n.body  = elEditBody.value || "";
     }
     save();
-    // обновим заголовок панели
     select(selected);
+    positionPanelNearSelected();
   }, 120);
 }
 elEditTitle.addEventListener("input", scheduleEditSave);
 elEditBody.addEventListener("input", scheduleEditSave);
-
-elBtnFocus.onclick = ()=>{
-  if(!selected) return;
-  jumpToSelected();
-};
 
 elBtnDelete.onclick = ()=>{
   if(!selected) return;
 
   if(selected.type==="core"){
     const id = selected.id;
-    // удалить узлы этого ядра
     state.nodes = state.nodes.filter(n=>n.coreId!==id);
-    // удалить edges, где участвует
     state.edges = state.edges.filter(e=>e.a!==id && e.b!==id);
-    // удалить ядро
     state.cores = state.cores.filter(c=>c.id!==id);
-  }else{
+  } else {
     const id = selected.id;
     state.nodes = state.nodes.filter(n=>n.id!==id);
   }
@@ -836,58 +835,51 @@ function openSearch(){
   renderResults([]);
   elSearchInput.focus();
 }
-function closeSearch(){
-  elSearchOverlay.classList.remove("open");
+function closeSearch(){ elSearchOverlay.classList.remove("open"); }
+function escapeHtml(s){
+  return (s||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
 }
 function renderResults(items){
-  elResults.innerHTML = "";
+  elResults.innerHTML="";
   if(items.length===0){
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `<span style="opacity:.7">Введите запрос…</span><span class="tag">Esc</span>`;
+    const div=document.createElement("div");
+    div.className="item";
+    div.innerHTML=`<span style="opacity:.7">Введите запрос…</span><span class="tag">Esc</span>`;
     elResults.appendChild(div);
     return;
   }
   for(const it of items){
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `<span>${escapeHtml(it.title)}</span><span class="tag">${it.type === "core" ? "ядро" : "узел"}</span>`;
-    div.onclick = ()=>{
+    const div=document.createElement("div");
+    div.className="item";
+    div.innerHTML=`<span>${escapeHtml(it.title)}</span><span class="tag">${it.type==="core"?"ядро":"узел"}</span>`;
+    div.onclick=()=>{
       closeSearch();
-      select({type: it.type, id: it.id});
-      openPanel();
-      jumpToSelected();
+      select({type:it.type,id:it.id});
+      openPanel(true);
+      jumpToSelected(true);
     };
     elResults.appendChild(div);
   }
 }
-function escapeHtml(s){
-  return (s||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
-}
 function searchItems(q){
-  q = (q||"").trim().toLowerCase();
+  q=(q||"").trim().toLowerCase();
   if(!q) return [];
-  const res = [];
+  const res=[];
   for(const c of state.cores){
-    const hay = (c.title+" "+(c.body||"")).toLowerCase();
-    if(hay.includes(q)) res.push({type:"core", id:c.id, title:c.title||"…"});
+    const hay=(c.title+" "+(c.body||"")).toLowerCase();
+    if(hay.includes(q)) res.push({type:"core",id:c.id,title:c.title||"…"});
   }
   for(const n of state.nodes){
-    const hay = (n.title+" "+(n.body||"")).toLowerCase();
-    if(hay.includes(q)) res.push({type:"node", id:n.id, title:n.title||"…"});
+    const hay=(n.title+" "+(n.body||"")).toLowerCase();
+    if(hay.includes(q)) res.push({type:"node",id:n.id,title:n.title||"…"});
   }
-  // чуть ограничим
-  return res.slice(0, 20);
+  return res.slice(0,20);
 }
-elSearchInput.addEventListener("input", ()=>{
-  renderResults(searchItems(elSearchInput.value));
-});
-elSearchOverlay.addEventListener("click", (e)=>{
-  if(e.target === elSearchOverlay) closeSearch();
-});
-window.addEventListener("keydown", (e)=>{
-  // Ctrl+K / Cmd+K
-  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="k"){
+elSearchInput.addEventListener("input", ()=>renderResults(searchItems(elSearchInput.value)));
+elSearchOverlay.addEventListener("click", (e)=>{ if(e.target===elSearchOverlay) closeSearch(); });
+
+window.addEventListener("keydown",(e)=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="k"){
     e.preventDefault();
     openSearch();
   }
@@ -902,55 +894,42 @@ elToggle.onclick = ()=>{
   syncUITheme();
 };
 
-/* ---------- Управление мышью: drag/pan/zoom + dblclick create ---------- */
-let pointer = {
-  down: false,
-  mode: "none", // "dragObject" | "pan"
-  lastX: 0, lastY: 0,
-  dragSel: null,
-};
+/* ---------- Управление ---------- */
+let pointer = { down:false, mode:"none", lastX:0,lastY:0, dragSel:null };
 
-canvas.addEventListener("mousedown", (e)=>{
-  const sx = e.clientX, sy = e.clientY;
-  pointer.down = true;
-  pointer.lastX = sx; pointer.lastY = sy;
+canvas.addEventListener("mousedown",(e)=>{
+  const sx=e.clientX, sy=e.clientY;
+  pointer.down=true;
+  pointer.lastX=sx; pointer.lastY=sy;
 
-  const hit = hitTest(sx, sy);
+  const hit=hitTest(sx,sy);
   if(hit){
     select(hit);
-    openPanel();
+    openPanel(true);
 
-    pointer.mode = "dragObject";
-    pointer.dragSel = hit;
+    pointer.mode="dragObject";
+    pointer.dragSel=hit;
 
-    // переносим выбранное наверх (чтобы ощущалось “схватил”)
     if(hit.type==="core"){
-      const idx = state.cores.findIndex(c=>c.id===hit.id);
-      if(idx>=0){
-        const [c] = state.cores.splice(idx,1);
-        state.cores.push(c);
-      }
+      const idx=state.cores.findIndex(c=>c.id===hit.id);
+      if(idx>=0){ const [c]=state.cores.splice(idx,1); state.cores.push(c); }
     }else{
-      const idx = state.nodes.findIndex(n=>n.id===hit.id);
-      if(idx>=0){
-        const [n] = state.nodes.splice(idx,1);
-        state.nodes.push(n);
-      }
+      const idx=state.nodes.findIndex(n=>n.id===hit.id);
+      if(idx>=0){ const [n]=state.nodes.splice(idx,1); state.nodes.push(n); }
     }
-  } else {
-    selected = null;
+  }else{
+    selected=null;
     closePanel();
-    pointer.mode = "pan";
-    pointer.dragSel = null;
+    pointer.mode="pan";
+    pointer.dragSel=null;
   }
 });
 
-window.addEventListener("mousemove", (e)=>{
+window.addEventListener("mousemove",(e)=>{
   if(!pointer.down) return;
-  const sx = e.clientX, sy = e.clientY;
-  const dx = sx - pointer.lastX;
-  const dy = sy - pointer.lastY;
-  pointer.lastX = sx; pointer.lastY = sy;
+  const sx=e.clientX, sy=e.clientY;
+  const dx=sx-pointer.lastX, dy=sy-pointer.lastY;
+  pointer.lastX=sx; pointer.lastY=sy;
 
   if(pointer.mode==="pan"){
     view.x += dx;
@@ -960,91 +939,112 @@ window.addEventListener("mousemove", (e)=>{
   }
 
   if(pointer.mode==="dragObject" && pointer.dragSel){
-    const worldDelta = { x: dx / view.z, y: dy / view.z };
+    const worldDelta={x: dx/view.z, y: dy/view.z};
     if(pointer.dragSel.type==="core"){
-      const c = getCore(pointer.dragSel.id);
-      if(c){ c.x += worldDelta.x; c.y += worldDelta.y; save(); }
-    } else {
-      const n = getNode(pointer.dragSel.id);
-      if(n){ n.x += worldDelta.x; n.y += worldDelta.y; save(); }
+      const c=getCore(pointer.dragSel.id);
+      if(c){ c.x+=worldDelta.x; c.y+=worldDelta.y; save(); positionPanelNearSelected(); }
+    }else{
+      const n=getNode(pointer.dragSel.id);
+      if(n){ n.x+=worldDelta.x; n.y+=worldDelta.y; save(); positionPanelNearSelected(); }
     }
   }
 });
 
-window.addEventListener("mouseup", ()=>{
-  pointer.down = false;
-  pointer.mode = "none";
-  pointer.dragSel = null;
+window.addEventListener("mouseup",()=>{
+  pointer.down=false;
+  pointer.mode="none";
+  pointer.dragSel=null;
 });
 
-/* колесо — зум к курсору */
-canvas.addEventListener("wheel", (e)=>{
+/* Зум колесом — расширили максимум */
+canvas.addEventListener("wheel",(e)=>{
   e.preventDefault();
-  const sx = e.clientX, sy = e.clientY;
-  const before = screenToWorld(sx, sy);
+  const sx=e.clientX, sy=e.clientY;
+  const before=screenToWorld(sx,sy);
 
-  const zoomFactor = Math.exp(-e.deltaY * 0.0012);
-  const newZ = clamp(view.z * zoomFactor, 0.35, 2.6);
-  view.z = newZ;
+  const zoomFactor=Math.exp(-e.deltaY*0.0012);
+  view.z = clamp(view.z*zoomFactor, 0.35, 3.6);
 
-  const after = screenToWorld(sx, sy);
-  // компенсируем, чтобы точка под курсором оставалась на месте
-  view.x += (after.x - before.x) * view.z;
-  view.y += (after.y - before.y) * view.z;
+  const after=screenToWorld(sx,sy);
+  view.x += (after.x-before.x)*view.z;
+  view.y += (after.y-before.y)*view.z;
 
   save();
-}, {passive:false});
+  if(elPanel.classList.contains("open")) positionPanelNearSelected();
+},{passive:false});
 
-/* двойной клик: пустота -> ядро, ядро -> узел */
-canvas.addEventListener("dblclick", (e)=>{
-  const sx = e.clientX, sy = e.clientY;
-  const hit = hitTest(sx, sy);
+/* Двойной клик: пустота -> ядро, ядро -> узел */
+canvas.addEventListener("dblclick",(e)=>{
+  const sx=e.clientX, sy=e.clientY;
+  const hit=hitTest(sx,sy);
   if(hit && hit.type==="core"){
     createNodeForCore(hit.id);
   }else if(!hit){
-    const wpos = screenToWorld(sx, sy);
-    createCoreAtWorld(wpos.x, wpos.y);
+    const wpos=screenToWorld(sx,sy);
+    createCoreAtWorld(wpos.x,wpos.y);
   }
 });
 
-/* ---------- Прыжок к выбранному ---------- */
-function jumpToSelected(){
-  if(!selected) return;
-  let obj = selected.type==="core" ? getCore(selected.id) : getNode(selected.id);
+/* ---------- Прыжок (красивый: zoom+pan) ---------- */
+function easeInOutCubic(x){
+  return x < 0.5 ? 4*x*x*x : 1 - Math.pow(-2*x+2, 3)/2;
+}
+
+function getSelectedObj(){
+  if(!selected) return null;
+  return selected.type==="core" ? getCore(selected.id) : getNode(selected.id);
+}
+
+function jumpToSelected(zoomIn=true){
+  const obj = getSelectedObj();
   if(!obj) return;
 
-  // мягко центрируем: анимация
-  const targetX = cx - (obj.x * view.z);
-  const targetY = cy - (obj.y * view.z);
-  const startX = view.x, startY = view.y;
-  const dur = 220;
+  // целевой zoom: к узлу ближе, к ядру умеренно
+  const targetZ = clamp(
+    zoomIn ? (selected.type==="node" ? 2.85 : 2.10) : view.z,
+    0.35, 3.6
+  );
+
+  // центрируем объект примерно к центру экрана
+  const targetX = cx - (obj.x * targetZ);
+  const targetY = cy - (obj.y * targetZ);
+
+  const start = { x:view.x, y:view.y, z:view.z };
+  const end   = { x:targetX, y:targetY, z:targetZ };
+
+  const dur = 520;
   const t0 = performance.now();
 
   function step(now){
     const k = clamp((now - t0)/dur, 0, 1);
-    const ease = 1 - Math.pow(1-k, 3);
-    view.x = startX + (targetX - startX) * ease;
-    view.y = startY + (targetY - startY) * ease;
+    const e = easeInOutCubic(k);
+
+    view.z = start.z + (end.z - start.z) * e;
+    view.x = start.x + (end.x - start.x) * e;
+    view.y = start.y + (end.y - start.y) * e;
+
+    if(elPanel.classList.contains("open")) positionPanelNearSelected();
+
     if(k < 1) requestAnimationFrame(step);
     else save();
   }
   requestAnimationFrame(step);
 }
+elBtnFocus.onclick = ()=> jumpToSelected(true);
 
 /* ---------- Рендер-цикл ---------- */
-let T = 0;
+let T=0;
 function frame(){
   T++;
-
-  // фон
   drawBackground(T);
-  updateAndDrawParticles(particlesFar, "far", T);
+  updateAndDrawParticles(particlesFar,"far",T);
   updateAndDrawParticles(particlesNear,"near",T);
-
-  // мир (ядра/узлы/потоки)
   drawFlows(T);
   drawCores(T);
   drawNodes(T);
+
+  // если панель открыта — следим за объектом (на всякий)
+  if(elPanel.classList.contains("open")) positionPanelNearSelected();
 
   requestAnimationFrame(frame);
 }
@@ -1053,15 +1053,6 @@ function frame(){
 resize();
 load();
 syncUITheme();
-
-// если впервые — позиционируем дефолтные ядра вокруг центра
-if(!state._view){
-  view.x = cx;
-  view.y = cy;
-  view.z = 1.0;
-  save();
-}
-
 frame();
 </script>
 </body>
