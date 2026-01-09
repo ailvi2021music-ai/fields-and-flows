@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8"/>
-  <title>Поля и Потоки — v0.4</title>
+  <title>Поля и Потоки — v0.5</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 
   <style>
@@ -11,7 +11,7 @@
       --glass-dark-brd: rgba(255,255,255,0.14);
       --glass-dark-txt: #eaf2ff;
 
-      --glass-light: rgba(255,255,255,0.82);
+      --glass-light: rgba(255,255,255,0.86);
       --glass-light-brd: rgba(0,0,0,0.12);
       --glass-light-txt: #111;
     }
@@ -78,12 +78,12 @@
       color:#111;
     }
 
-    /* Окно помощи рядом с ? */
+    /* Окно помощи */
     .help-pop{
       position: fixed;
       left: 14px;
       bottom: 64px;
-      width: 320px;
+      width: 330px;
       max-width: calc(100vw - 28px);
       border-radius: 16px;
       backdrop-filter: blur(10px);
@@ -125,7 +125,7 @@
     }
     .help-pop.light .kbd{ border-color: rgba(0,0,0,.18); }
 
-    /* Плавающая панель редактирования */
+    /* Панель редактирования */
     .panel{
       position: fixed;
       left: 12px;
@@ -133,10 +133,6 @@
 
       width: 340px;
       max-width: calc(100vw - 24px);
-
-      height: auto;
-      max-height: min(520px, 70vh);
-      overflow: auto;
 
       border-radius: 18px;
       backdrop-filter: blur(10px);
@@ -153,6 +149,10 @@
 
       transition: opacity .16s ease, transform .16s ease;
       z-index: 45;
+
+      /* важное: не даём панели “превращаться” в страницу со скроллом */
+      max-height: min(560px, 78vh);
+      overflow: hidden;
     }
     .panel.open{
       opacity: 1;
@@ -164,6 +164,10 @@
       background: var(--glass-light);
       color: var(--glass-light-txt);
     }
+
+    /* скрываем скролл-бары там, где всё же появляется внутренний скролл */
+    .panel *::-webkit-scrollbar{ width: 0; height: 0; }
+    .panel *{ scrollbar-width: none; }
 
     .panel-head{
       display:flex;
@@ -183,17 +187,11 @@
       opacity: .95;
     }
     .muted{
-      opacity: .72;
+      opacity: .70;
       font-size: 12px;
       line-height: 1.25;
     }
 
-    .row{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      margin: 10px 0;
-    }
     .btn{
       border: 1px solid rgba(255,255,255,0.14);
       background: rgba(255,255,255,0.06);
@@ -234,7 +232,13 @@
       border-color: rgba(0,0,0,0.14);
       background: rgba(0,0,0,0.03);
     }
-    .textarea{ min-height: 120px; resize: vertical; }
+
+    .textarea{
+      min-height: 92px;
+      max-height: 280px;
+      overflow: auto; /* внутренний скролл, если текста слишком много */
+      resize: none;   /* убираем “растягивание”, которое рождало некрасивые полосы */
+    }
 
     /* Поиск */
     .searchOverlay{
@@ -273,7 +277,7 @@
       color: inherit;
       box-sizing: border-box;
     }
-    .searchInput::placeholder{ opacity: .45; }
+    .searchInput::placeholder{ opacity: .42; }
 
     .results{
       max-height: 38vh;
@@ -312,10 +316,11 @@
   <div class="help-title">Коротко</div>
   <ul class="help-list">
     <li>Выделить объект: клик</li>
-    <li>Открыть фокус + редактирование: двойной клик или <span class="kbd">Enter</span></li>
     <li>Создать ядро: двойной клик по пустоте</li>
     <li>Создать мысль: двойной клик по ядру</li>
-    <li>Удалить выбранное: <span class="kbd">Del</span> (или <span class="kbd">Backspace</span>)</li>
+    <li>Создать дочернюю мысль: двойной клик по мысли</li>
+    <li>Фокус + редактирование: <span class="kbd">Enter</span> или ПКМ</li>
+    <li>Удалить выбранное: <span class="kbd">Del</span> / <span class="kbd">Backspace</span></li>
     <li>Поиск: <span class="kbd">Ctrl</span>+<span class="kbd">K</span></li>
     <li>Панорама: тащи фон • Зум: колесо</li>
     <li>Перемещать панель: тащи за верхнюю строку</li>
@@ -352,15 +357,16 @@
 
 <script>
 /* =========================================================
-   Поля и Потоки v0.4
-   - Убрано сохранение "…"
-   - Delete/Backspace удаляет выбранное
-   - Клик = выделить, НЕ открывать панель
-   - Enter или dblclick по объекту = фокус + открыть панель справа
-   - Панель перетаскиваемая, с "закреплением"
-   - Живой light-mode (частицы видны)
-   - Свечение вместо колец
-   - Линии слегка "дышат" у всех связей
+   Поля и Потоки v0.5
+   FIX:
+   - связи больше НЕ зависят от порядка массива (ничего не “меняется местами”)
+   - убраны внутренние белые круги
+   - dblclick = создание (пустота/ядро/мысль)
+   - Enter/ПКМ = фокус + панель
+   - майндмэп: мысль → дочерняя мысль
+   - линии мысль-мысль “дышат” сильнее
+   - частицы в светлом режиме приглушены
+   - textarea авто-рост, без мерзких скролл-стрелок
 ========================================================= */
 
 const canvas = document.getElementById("field");
@@ -373,7 +379,6 @@ const elHelpPop = document.getElementById("helpPop");
 
 const elPanel = document.getElementById("panel");
 const elPanelClose = document.getElementById("panelClose");
-const elPanelTitle = document.getElementById("panelTitle");
 const elPanelMeta = document.getElementById("panelMeta");
 const elEditTitle = document.getElementById("editTitle");
 const elEditBody = document.getElementById("editBody");
@@ -415,17 +420,25 @@ function resize(){
 window.addEventListener("resize", resize);
 
 /* ---------- Данные ---------- */
-const STORAGE_KEY = "fields_flows_v04";
+const STORAGE_KEY = "fields_flows_v05";
 
 let state = { cores: [], nodes: [] };
 let selected = null; // {type:'core'|'node', id:...}
 
-/* ---------- Default ---------- */
+/*
+ node:
+  - id
+  - coreId (для группировки)
+  - parentType: 'core'|'node'
+  - parentId: id родителя
+  - title, body, x,y,r,hue
+*/
+
 function defaultState(){
-  const c1 = {id: uid("core"), title:"Основы", body:"", x: -220, y: -80, r: 26, hue: 210};
-  const c2 = {id: uid("core"), title:"Практика", body:"", x:  180, y:-120, r: 22, hue: 220};
-  const c3 = {id: uid("core"), title:"Идеи",    body:"", x:  120, y: 140, r: 28, hue: 205};
-  const c4 = {id: uid("core"), title:"Личное",  body:"", x: -160, y: 160, r: 20, hue: 230};
+  const c1 = {id: uid("core"), title:"Основы",   body:"", x:-240, y:-80,  r:26, hue:210};
+  const c2 = {id: uid("core"), title:"Практика", body:"", x: 180, y:-120, r:24, hue:220};
+  const c3 = {id: uid("core"), title:"Идеи",     body:"", x: 120, y: 140, r:28, hue:205};
+  const c4 = {id: uid("core"), title:"Личное",   body:"", x:-160, y: 160, r:22, hue:230};
   return { cores:[c1,c2,c3,c4], nodes:[] };
 }
 
@@ -473,7 +486,6 @@ elHelpBtn.addEventListener("click", ()=>{
   elHelpPop.classList.toggle("open");
 });
 window.addEventListener("mousedown",(e)=>{
-  // клик вне помощи закрывает её (но не мешает кликам по canvas)
   if(elHelpPop.classList.contains("open")){
     const inPop = elHelpPop.contains(e.target);
     const inBtn = elHelpBtn.contains(e.target);
@@ -495,8 +507,8 @@ function makeParticle(layer){
     tw: rand(0,Math.PI*2),
     twSpeed: isFar ? rand(0.010,0.024) : rand(0.014,0.032),
     size: baseSize,
-    baseAlpha: isFar ? rand(0.14,0.40) : rand(0.12,0.34),
-    sparkle: Math.random() < (isFar ? 0.06 : 0.04),
+    baseAlpha: isFar ? rand(0.12,0.34) : rand(0.10,0.28),
+    sparkle: Math.random() < (isFar ? 0.05 : 0.03),
     sparkleT: rand(0,9999),
   };
 }
@@ -525,20 +537,18 @@ function drawBackground(t){
   ctx.fillStyle = grd;
   ctx.fillRect(0,0,w,h);
 
-  // В light режиме НЕ делаем плотную белую пелену — она убивает жизнь.
   if(mode==="deep"){
     ctx.fillStyle="rgba(10,14,28,0.08)";
     ctx.fillRect(0,0,w,h);
   }else{
-    ctx.fillStyle="rgba(255,255,255,0.10)";
+    ctx.fillStyle="rgba(255,255,255,0.08)";
     ctx.fillRect(0,0,w,h);
   }
 }
 function updateAndDrawParticles(list, layer, t){
   const isFar = layer==="far";
-  const speedMul = (mode==="deep") ? 1.0 : 1.12;
+  const speedMul = (mode==="deep") ? 1.0 : 1.08;
 
-  // Цвета частиц: в светлом режиме делаем контрастнее (синевато-серые)
   let r,g,b;
   if(mode==="deep"){ r=170; g=205; b=255; }
   else { r=55; g=75; b=145; }
@@ -559,14 +569,14 @@ function updateAndDrawParticles(list, layer, t){
     let spark=0;
     if(p.sparkle){
       p.sparkleT += 1;
-      if((p.sparkleT % Math.floor(360 + Math.random()*620))===0) p.sparkleT=1;
-      if(p.sparkleT>0 && p.sparkleT<22) spark=(22-p.sparkleT)/22;
-      if(p.sparkleT>=22) p.sparkleT=0;
+      if((p.sparkleT % Math.floor(420 + Math.random()*740))===0) p.sparkleT=1;
+      if(p.sparkleT>0 && p.sparkleT<18) spark=(18-p.sparkleT)/18;
+      if(p.sparkleT>=18) p.sparkleT=0;
     }
 
-    const alphaBase = p.baseAlpha * (isFar ? 1.0 : 0.95);
-    const alphaBoost = (mode==="deep") ? 1.0 : (isFar ? 1.35 : 1.55);
-    const a = Math.min(0.85, (alphaBase*alphaBoost)*twinkle + spark*(isFar?0.22:0.18));
+    const alphaBase = p.baseAlpha;
+    const alphaBoost = (mode==="deep") ? 1.0 : (isFar ? 1.05 : 1.10); // приглушили
+    const a = Math.min(0.70, (alphaBase*alphaBoost)*twinkle + spark*(isFar?0.16:0.12));
     const s = p.size*(0.75+p.z*0.85);
 
     ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
@@ -574,8 +584,7 @@ function updateAndDrawParticles(list, layer, t){
     ctx.arc(p.x,p.y,s,0,Math.PI*2);
     ctx.fill();
 
-    // лёгкое свечение
-    const glowA = (mode==="deep") ? (a*0.14) : (a*0.10);
+    const glowA = (mode==="deep") ? (a*0.12) : (a*0.08);
     ctx.fillStyle = `rgba(${r},${g},${b},${glowA})`;
     ctx.beginPath();
     ctx.arc(p.x,p.y,s*3.0,0,Math.PI*2);
@@ -587,44 +596,45 @@ function updateAndDrawParticles(list, layer, t){
 function getCore(id){ return state.cores.find(c=>c.id===id); }
 function getNode(id){ return state.nodes.find(n=>n.id===id); }
 
-/* ---------- Связи ---------- */
-function getConnections(){
-  // ядро-ядро: по умолчанию визуально связываем соседей (как атмосферный поток)
-  const links = [];
-  for(let i=0;i<state.cores.length;i++){
-    const a = state.cores[i];
-    const b = state.cores[(i+1)%state.cores.length];
-    if(a && b) links.push({aType:"core",aId:a.id,bType:"core",bId:b.id, kind:"core"});
-  }
-  // ядро-узлы: реальные связи
+/* ---------- Связи (ТОЛЬКО РЕАЛЬНЫЕ) ---------- */
+function getEdges(){
+  const edges = [];
   for(const n of state.nodes){
-    links.push({aType:"core",aId:n.coreId,bType:"node",bId:n.id, kind:"node"});
+    if(n.parentType==="core"){
+      edges.push({aType:"core", aId:n.parentId, bType:"node", bId:n.id});
+    }else if(n.parentType==="node"){
+      edges.push({aType:"node", aId:n.parentId, bType:"node", bId:n.id});
+    }
   }
-  return links;
+  return edges;
 }
 
 /* ---------- Рендер ---------- */
 function hsl(h,s,l,a=1){ return `hsla(${h},${s}%,${l}%,${a})`; }
 
-function drawFlows(t){
-  const links = getConnections();
-  const baseLine = (mode==="deep") ? "rgba(140,180,255,0.18)" : "rgba(45,65,135,0.24)";
-  const coreLine = (mode==="deep") ? "rgba(140,180,255,0.24)" : "rgba(45,65,135,0.34)";
+function drawEdges(t){
+  const edges = getEdges();
+
+  const baseLine = (mode==="deep") ? "rgba(140,180,255,0.22)" : "rgba(45,65,135,0.26)";
   ctx.lineCap = "round";
 
-  for(const L of links){
-    const A = (L.aType==="core") ? getCore(L.aId) : getNode(L.aId);
-    const B = (L.bType==="core") ? getCore(L.bId) : getNode(L.bId);
+  for(const E of edges){
+    const A = (E.aType==="core") ? getCore(E.aId) : getNode(E.aId);
+    const B = getNode(E.bId);
     if(!A || !B) continue;
 
     const As = worldToScreen(A.x, A.y);
     const Bs = worldToScreen(B.x, B.y);
 
-    const sway = (L.kind==="core" ? 18 : 10) * Math.sin(t*0.018 + (As.x+Bs.x)*0.0012)
-               + (L.kind==="core" ? 10 : 6)  * Math.sin(t*0.006  + (As.y+Bs.y)*0.0011);
+    // Сильнее “дыхание” для мысль-мысль
+    const strong = (E.aType==="node") ? 1.85 : 1.0;
 
-    ctx.strokeStyle = (L.kind==="core") ? coreLine : baseLine;
-    ctx.lineWidth = (L.kind==="core") ? 1.4 : 1.2;
+    const sway =
+      strong * (12 * Math.sin(t*0.020 + (As.x+Bs.x)*0.0012) +
+               7  * Math.sin(t*0.007  + (As.y+Bs.y)*0.0011));
+
+    ctx.strokeStyle = baseLine;
+    ctx.lineWidth = (E.aType==="node") ? 1.3 : 1.5;
 
     ctx.beginPath();
     ctx.moveTo(As.x, As.y);
@@ -633,7 +643,7 @@ function drawFlows(t){
   }
 }
 
-function drawCore(c, t){
+function drawCore(c){
   const pos = worldToScreen(c.x, c.y);
   const rWorld = (c.r ?? 24);
   const r = rWorld * view.z;
@@ -641,9 +651,8 @@ function drawCore(c, t){
   const hue = c.hue ?? 210;
   const isSel = selected && selected.type==="core" && selected.id===c.id;
 
-  // Свечение в screen-space (не ломается при зуме)
   const blur = (mode==="deep" ? 26 : 18) * clamp(view.z, 0.75, 1.25) + (isSel ? 10 : 0);
-  const fill = (mode==="deep") ? hsl(hue, 85, 65, 0.92) : hsl(hue, 75, 45, 0.92);
+  const fill = (mode==="deep") ? hsl(hue, 85, 65, 0.94) : hsl(hue, 75, 45, 0.94);
 
   ctx.shadowColor = fill;
   ctx.shadowBlur = blur;
@@ -653,12 +662,7 @@ function drawCore(c, t){
   ctx.arc(pos.x, pos.y, r, 0, Math.PI*2);
   ctx.fill();
 
-  // внутренний “живой” отблеск
   ctx.shadowBlur = 0;
-  ctx.fillStyle = (mode==="deep") ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.10)";
-  ctx.beginPath();
-  ctx.arc(pos.x - r*0.18, pos.y - r*0.18, r*0.55, 0, Math.PI*2);
-  ctx.fill();
 
   const label = (c.title ?? "").trim();
   if(label){
@@ -670,7 +674,7 @@ function drawCore(c, t){
   }
 }
 
-function drawNode(n, t){
+function drawNode(n){
   const pos = worldToScreen(n.x, n.y);
   const rWorld = (n.r ?? 10);
   const r = rWorld * view.z;
@@ -678,9 +682,8 @@ function drawNode(n, t){
   const hue = n.hue ?? 200;
   const isSel = selected && selected.type==="node" && selected.id===n.id;
 
-  // Дочерние — яркие, не бледные
   const blur = (mode==="deep" ? 20 : 16) * clamp(view.z, 0.75, 1.25) + (isSel ? 10 : 0);
-  const fill = (mode==="deep") ? hsl(hue, 90, 78, 0.92) : hsl(hue, 85, 55, 0.92);
+  const fill = (mode==="deep") ? hsl(hue, 90, 76, 0.93) : hsl(hue, 85, 55, 0.93);
 
   ctx.shadowColor = fill;
   ctx.shadowBlur = blur;
@@ -703,15 +706,25 @@ function drawNode(n, t){
 }
 
 function drawWorld(t){
-  drawFlows(t);
+  drawEdges(t);
 
-  for(const c of state.cores) drawCore(c, t);
-  for(const n of state.nodes) drawNode(n, t);
+  // рисуем всё, потом выбранное — сверху (без перестановки массивов)
+  for(const c of state.cores) drawCore(c);
+  for(const n of state.nodes) drawNode(n);
+
+  if(selected){
+    if(selected.type==="core"){
+      const c = getCore(selected.id);
+      if(c) drawCore(c);
+    }else{
+      const n = getNode(selected.id);
+      if(n) drawNode(n);
+    }
+  }
 }
 
 /* ---------- Hit-test ---------- */
 function hitTest(sx, sy){
-  // nodes first
   for(let i=state.nodes.length-1;i>=0;i--){
     const n = state.nodes[i];
     const p = worldToScreen(n.x, n.y);
@@ -736,37 +749,42 @@ function createCoreAtWorld(wx, wy){
   state.cores.push(c);
   save();
   selected = {type:"core", id:c.id};
-  // НЕ открываем панель автоматически — только выделение
 }
-function createNodeForCore(coreId){
-  const c = getCore(coreId);
-  if(!c) return;
+
+function createNode(parentType, parentId, coreId){
+  const base = parentType==="core" ? getCore(parentId) : getNode(parentId);
+  if(!base) return;
+
   const angle = rand(0, Math.PI*2);
-  const dist = rand(76, 120);
-  const hue = clamp((c.hue ?? 210) + rand(-18, 18), 0, 360);
+  const dist = rand(78, 125);
+  const hueBase = (parentType==="core") ? (getCore(parentId)?.hue ?? 210) : (getNode(parentId)?.hue ?? 205);
+  const hue = clamp(hueBase + rand(-16,16), 0, 360);
+
   const n = {
     id: uid("node"),
     coreId,
+    parentType,
+    parentId,
     title: "Мысль",
     body: "",
-    x: c.x + Math.cos(angle)*dist,
-    y: c.y + Math.sin(angle)*dist,
+    x: base.x + Math.cos(angle)*dist,
+    y: base.y + Math.sin(angle)*dist,
     r: 10,
     hue
   };
   state.nodes.push(n);
   save();
   selected = {type:"node", id:n.id};
-  // НЕ открываем панель автоматически
 }
 
-/* ---------- Панель: открытие только по фокусу ---------- */
+/* ---------- Панель ---------- */
 let panelPinned = false;
 
 function openPanel(){
   elPanel.classList.add("open");
   if(!panelPinned) positionPanelForFocus();
   refreshPanelFields();
+  autoGrowTextarea();
 }
 function closePanel(){
   elPanel.classList.remove("open");
@@ -778,11 +796,15 @@ function refreshPanelFields(){
   const obj = selected.type==="core" ? getCore(selected.id) : getNode(selected.id);
   if(!obj) return;
 
-  const meta = selected.type==="core"
-    ? `Ядро • мыслей: ${state.nodes.filter(n=>n.coreId===obj.id).length}`
-    : `Мысль • внутри ядра: ${(getCore(obj.coreId)?.title ?? "—")}`;
+  if(selected.type==="core"){
+    const count = state.nodes.filter(n=>n.coreId===obj.id).length;
+    elPanelMeta.textContent = `Ядро • мыслей: ${count}`;
+  }else{
+    const parent = obj.parentType==="core" ? getCore(obj.parentId) : getNode(obj.parentId);
+    const pTitle = parent?.title ?? "—";
+    elPanelMeta.textContent = `Мысль • внутри: ${pTitle}`;
+  }
 
-  elPanelMeta.textContent = meta;
   elEditTitle.value = obj.title ?? "";
   elEditBody.value  = obj.body ?? "";
 }
@@ -795,17 +817,16 @@ function scheduleEditSave(){
     const obj = selected.type==="core" ? getCore(selected.id) : getNode(selected.id);
     if(!obj) return;
 
-    // ВАЖНО: не сохраняем "…"
-    obj.title = elEditTitle.value; // как есть
+    obj.title = elEditTitle.value;
     obj.body  = elEditBody.value;
 
     save();
-  }, 120);
+    autoGrowTextarea();
+  }, 110);
 }
 elEditTitle.addEventListener("input", scheduleEditSave);
 elEditBody.addEventListener("input", scheduleEditSave);
 
-/* ---------- Удаление ---------- */
 function deleteSelected(){
   if(!selected) return;
 
@@ -815,15 +836,37 @@ function deleteSelected(){
     state.cores = state.cores.filter(c=>c.id!==id);
   }else{
     const id = selected.id;
-    state.nodes = state.nodes.filter(n=>n.id!==id);
+    // удаляем узел и ВСЕ его дочерние рекурсивно (майндмэп)
+    const toDelete = new Set([id]);
+    let changed = true;
+    while(changed){
+      changed = false;
+      for(const n of state.nodes){
+        if(n.parentType==="node" && toDelete.has(n.parentId) && !toDelete.has(n.id)){
+          toDelete.add(n.id);
+          changed = true;
+        }
+      }
+    }
+    state.nodes = state.nodes.filter(n=>!toDelete.has(n.id));
   }
 
   selected = null;
   save();
   closePanel();
 }
-
 elBtnDelete.onclick = deleteSelected;
+
+/* ---------- Авто-рост textarea ---------- */
+function autoGrowTextarea(){
+  // ограничим рост, чтобы панель не стала “страницей”
+  const ta = elEditBody;
+  ta.style.height = "auto";
+  const max = 280;
+  const h = Math.min(max, ta.scrollHeight);
+  ta.style.height = h + "px";
+}
+elEditBody.addEventListener("input", autoGrowTextarea);
 
 /* ---------- Поиск ---------- */
 function openSearch(){
@@ -853,7 +896,7 @@ function renderResults(items){
     div.onclick=()=>{
       closeSearch();
       selected = {type: it.type, id: it.id};
-      focusToSelected(true); // красиво летим и открываем панель
+      focusToSelected(true);
     };
     elResults.appendChild(div);
   }
@@ -882,19 +925,15 @@ function isTypingTarget(el){
   return tag==="input" || tag==="textarea" || el.isContentEditable;
 }
 window.addEventListener("keydown",(e)=>{
-  // Ctrl+K
   if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="k"){
     e.preventDefault();
     openSearch();
     return;
   }
-  // Esc closes search
   if(e.key==="Escape"){
     if(elSearchOverlay.classList.contains("open")) closeSearch();
     return;
   }
-
-  // Delete / Backspace
   if((e.key==="Delete" || e.key==="Backspace") && !isTypingTarget(document.activeElement)){
     if(selected){
       e.preventDefault();
@@ -902,8 +941,6 @@ window.addEventListener("keydown",(e)=>{
     }
     return;
   }
-
-  // Enter = focus + open panel
   if(e.key==="Enter" && !isTypingTarget(document.activeElement)){
     if(selected){
       e.preventDefault();
@@ -929,7 +966,6 @@ function positionPanelForFocus(){
     elPanel.style.width = "calc(100vw - 24px)";
     return;
   }
-  // на десктопе панель справа от "фокусной" точки
   elPanel.style.bottom = "";
   elPanel.style.width = "340px";
 
@@ -942,7 +978,7 @@ function positionPanelForFocus(){
 
 let dragPanel = {on:false, ox:0, oy:0};
 elPanelDrag.addEventListener("mousedown",(e)=>{
-  if(window.innerWidth < 520) return; // на мобиле не надо
+  if(window.innerWidth < 520) return;
   dragPanel.on = true;
   panelPinned = true;
   const rect = elPanel.getBoundingClientRect();
@@ -951,8 +987,9 @@ elPanelDrag.addEventListener("mousedown",(e)=>{
 });
 window.addEventListener("mousemove",(e)=>{
   if(!dragPanel.on) return;
-  const panelW = elPanel.getBoundingClientRect().width;
-  const panelH = elPanel.getBoundingClientRect().height;
+  const rect = elPanel.getBoundingClientRect();
+  const panelW = rect.width;
+  const panelH = rect.height;
 
   let left = e.clientX - dragPanel.ox;
   let top  = e.clientY - dragPanel.oy;
@@ -965,7 +1002,7 @@ window.addEventListener("mousemove",(e)=>{
 });
 window.addEventListener("mouseup",()=> dragPanel.on=false);
 
-/* ---------- Управление мышью ---------- */
+/* ---------- Мышь / тач ---------- */
 let pointer = { down:false, mode:"none", lastX:0,lastY:0, dragSel:null };
 
 canvas.addEventListener("mousedown",(e)=>{
@@ -976,18 +1013,8 @@ canvas.addEventListener("mousedown",(e)=>{
   const hit=hitTest(sx,sy);
   if(hit){
     selected = hit; // только выделяем
-    // панель не открываем
     pointer.mode="dragObject";
     pointer.dragSel=hit;
-
-    // bring to front
-    if(hit.type==="core"){
-      const idx=state.cores.findIndex(c=>c.id===hit.id);
-      if(idx>=0){ const [c]=state.cores.splice(idx,1); state.cores.push(c); }
-    }else{
-      const idx=state.nodes.findIndex(n=>n.id===hit.id);
-      if(idx>=0){ const [n]=state.nodes.splice(idx,1); state.nodes.push(n); }
-    }
   }else{
     selected=null;
     pointer.mode="pan";
@@ -1042,34 +1069,44 @@ canvas.addEventListener("wheel",(e)=>{
   save();
 },{passive:false});
 
-/* двойной клик */
+/* dblclick = создание */
 canvas.addEventListener("dblclick",(e)=>{
   const sx=e.clientX, sy=e.clientY;
   const hit=hitTest(sx,sy);
 
-  if(hit){
-    selected = hit;
-    // dblclick по объекту = фокус + панель
-    focusToSelected(true);
+  if(!hit){
+    const wpos=screenToWorld(sx,sy);
+    createCoreAtWorld(wpos.x, wpos.y);
     return;
   }
 
-  // пустота: создаём ядро
-  const wpos=screenToWorld(sx,sy);
-  createCoreAtWorld(wpos.x, wpos.y);
-});
+  selected = hit;
 
-/* dblclick по ядру для мысли — делаем через второй dblclick: если выделено ядро и ты double-click по нему */
-canvas.addEventListener("dblclick",(e)=>{
-  const sx=e.clientX, sy=e.clientY;
-  const hit=hitTest(sx,sy);
-  if(hit && hit.type==="core"){
-    // вместо открытия узла — создаем узел + остаемся на выделении узла
-    createNodeForCore(hit.id);
+  if(hit.type==="core"){
+    createNode("core", hit.id, hit.id);
+    return;
+  }
+
+  if(hit.type==="node"){
+    const n = getNode(hit.id);
+    if(!n) return;
+    createNode("node", n.id, n.coreId);
+    return;
   }
 });
 
-/* ---------- ФОКУС: улетает в левую часть + панель справа ---------- */
+/* ПКМ = фокус + панель */
+canvas.addEventListener("contextmenu",(e)=>{
+  e.preventDefault();
+  const sx=e.clientX, sy=e.clientY;
+  const hit=hitTest(sx,sy);
+  if(hit){
+    selected = hit;
+    focusToSelected(true);
+  }
+});
+
+/* ---------- ФОКУС ---------- */
 function easeInOutCubic(x){
   return x < 0.5 ? 4*x*x*x : 1 - Math.pow(-2*x+2, 3)/2;
 }
@@ -1082,10 +1119,8 @@ function focusToSelected(openEditor=true){
   const obj = getSelectedObj();
   if(!obj) return;
 
-  // целевой zoom
-  const targetZ = clamp(selected.type==="node" ? 4.6 : 3.3, 0.18, 6.0);
+  const targetZ = clamp(selected.type==="node" ? 4.8 : 3.5, 0.18, 6.0);
 
-  // хотим, чтобы объект оказался слева, почти по центру вертикали
   const targetScreenX = Math.floor(window.innerWidth * 0.30);
   const targetScreenY = Math.floor(window.innerHeight * 0.52);
 
@@ -1133,6 +1168,7 @@ function frame(){
 resize();
 load();
 syncUITheme();
+initParticles();
 frame();
 </script>
 </body>
