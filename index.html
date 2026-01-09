@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <title>Поля и Потоки</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #05070d;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    /* Кнопка режима */
+    .mode-toggle {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: all .3s ease;
+    }
+
+    .mode-toggle.light {
+      background: rgba(0,0,0,0.08);
+      color: #000;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="field"></canvas>
+<div class="mode-toggle" id="modeToggle">◐</div>
+
+<script>
+/* ===========================
+   БАЗОВАЯ СЦЕНА
+=========================== */
+
+const canvas = document.getElementById("field");
+const ctx = canvas.getContext("2d");
+
+let w, h, cx, cy;
+function resize() {
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
+  cx = w / 2;
+  cy = h / 2;
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* ===========================
+   СОСТОЯНИЕ РЕЖИМА
+=========================== */
+
+let mode = "deep"; // deep | focus
+const toggle = document.getElementById("modeToggle");
+
+toggle.onclick = () => {
+  mode = mode === "deep" ? "focus" : "deep";
+  toggle.classList.toggle("light", mode === "focus");
+};
+
+/* ===========================
+   ЯДРА
+=========================== */
+
+const cores = [
+  { x: cx - 220, y: cy - 80, r: 26, phase: Math.random()*10 },
+  { x: cx + 180, y: cy - 120, r: 22, phase: Math.random()*10 },
+  { x: cx + 120, y: cy + 140, r: 28, phase: Math.random()*10 },
+  { x: cx - 160, y: cy + 160, r: 20, phase: Math.random()*10 },
+];
+
+/* ===========================
+   ПОТОКИ
+=========================== */
+
+const flows = [
+  [0,1],
+  [1,2],
+  [2,3],
+  [3,0]
+];
+
+/* ===========================
+   АНИМАЦИЯ
+=========================== */
+
+let t = 0;
+
+function drawBackground() {
+  const grd = ctx.createRadialGradient(
+    cx, cy, 100,
+    cx, cy, Math.max(w,h)
+  );
+
+  if (mode === "deep") {
+    grd.addColorStop(0, "#0b1020");
+    grd.addColorStop(1, "#02030a");
+  } else {
+    grd.addColorStop(0, "#f5f7ff");
+    grd.addColorStop(1, "#dfe4ff");
+  }
+
+  ctx.fillStyle = grd;
+  ctx.fillRect(0,0,w,h);
+}
+
+function drawFlows() {
+  ctx.lineWidth = mode === "deep" ? 1.2 : 1.6;
+  ctx.strokeStyle = mode === "deep"
+    ? "rgba(140,180,255,0.25)"
+    : "rgba(60,80,160,0.35)";
+
+  flows.forEach(([a,b], i) => {
+    const A = cores[a];
+    const B = cores[b];
+    const sway = Math.sin(t*0.02 + i)*20;
+
+    ctx.beginPath();
+    ctx.moveTo(A.x, A.y);
+    ctx.quadraticCurveTo(
+      (A.x + B.x)/2 + sway,
+      (A.y + B.y)/2 - sway,
+      B.x, B.y
+    );
+    ctx.stroke();
+  });
+}
+
+function drawCores() {
+  cores.forEach(c => {
+    c.phase += 0.01;
+    const pulse = Math.sin(c.phase) * 2;
+
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.r + pulse, 0, Math.PI*2);
+
+    ctx.fillStyle = mode === "deep"
+      ? "rgba(120,160,255,0.85)"
+      : "rgba(60,80,160,0.9)";
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = mode === "deep" ? 20 : 12;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+}
+
+function animate() {
+  t++;
+  drawBackground();
+  drawFlows();
+  drawCores();
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+
+</body>
+</html>
