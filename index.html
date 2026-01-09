@@ -12,10 +12,8 @@
       overflow: hidden;
       font-family: system-ui, -apple-system, BlinkMacSystemFont;
     }
-
     canvas { display:block; }
 
-    /* Кнопка режима */
     .mode-toggle {
       position: fixed;
       top: 14px;
@@ -36,8 +34,8 @@
       user-select: none;
     }
     .mode-toggle.light {
-      background: rgba(0,0,0,0.08);
-      color: #000;
+      background: rgba(0,0,0,0.06);
+      color: #111;
       border: 1px solid rgba(0,0,0,0.10);
     }
   </style>
@@ -49,9 +47,7 @@
 
 <script>
 /* =========================================================
-   v0.2 — ЖИВОЙ ФОН (искры/пыль/параллакс) + поле/потоки/ядра
-   - Deep: звездная пыль + искры
-   - Focus: дневная пыльца/пылинки
+   v0.2.1 — FIX: ядра/потоки снова видны + дневной режим читается
 ========================================================= */
 
 const canvas = document.getElementById("field");
@@ -59,33 +55,15 @@ const ctx = canvas.getContext("2d");
 
 let w, h, cx, cy, DPR;
 
-function resize() {
-  DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1)); // аккуратно для производительности
-  w = Math.floor(window.innerWidth);
-  h = Math.floor(window.innerHeight);
-
-  canvas.width  = Math.floor(w * DPR);
-  canvas.height = Math.floor(h * DPR);
-  canvas.style.width = w + "px";
-  canvas.style.height = h + "px";
-
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-
-  cx = w / 2;
-  cy = h / 2;
-
-  // переинициализируем частицы, чтобы красиво распределялись
-  initParticles();
-}
-window.addEventListener("resize", resize);
+function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+function rand(min, max){ return min + Math.random() * (max - min); }
 
 /* ===========================
-   СОСТОЯНИЕ РЕЖИМА
+   РЕЖИМ
 =========================== */
 
 let mode = "deep"; // deep | focus
 const toggle = document.getElementById("modeToggle");
-
 toggle.onclick = () => {
   mode = mode === "deep" ? "focus" : "deep";
   toggle.classList.toggle("light", mode === "focus");
@@ -102,7 +80,8 @@ const cores = [
   { x: 0, y: 0, r: 20, phase: Math.random()*10 },
 ];
 
-function placeCores() {
+function placeCores(){
+  // размещение относительно центра (после resize!)
   cores[0].x = cx - 220; cores[0].y = cy - 80;
   cores[1].x = cx + 180; cores[1].y = cy - 120;
   cores[2].x = cx + 120; cores[2].y = cy + 140;
@@ -121,65 +100,77 @@ const flows = [
 ];
 
 /* ===========================
-   ФОН: ЧАСТИЦЫ ЖИЗНИ
+   ФОН: ЧАСТИЦЫ
 =========================== */
 
 let particlesFar = [];
 let particlesNear = [];
 
-function rand(min, max){ return min + Math.random() * (max - min); }
-
 function makeParticle(layer) {
-  // layer: "far" | "near"
   const isFar = layer === "far";
-
-  // Глубина: far более мелкие и редкие, near чуть крупнее
   const baseSize = isFar ? rand(0.4, 1.2) : rand(0.8, 2.2);
 
   return {
     x: rand(0, w),
     y: rand(0, h),
 
-    // движение
     vx: isFar ? rand(-0.06, 0.06) : rand(-0.14, 0.14),
     vy: isFar ? rand(-0.04, 0.04) : rand(-0.10, 0.10),
 
-    // "приближение/удаление"
-    z: rand(0.2, 1.0),                 // глубина
+    z: rand(0.2, 1.0),
     vz: isFar ? rand(-0.0006, 0.0006) : rand(-0.0012, 0.0012),
 
-    // мерцание
-    tw: rand(0, Math.PI*2),            // фаза
+    tw: rand(0, Math.PI*2),
     twSpeed: isFar ? rand(0.008, 0.02) : rand(0.012, 0.03),
 
-    // размер и яркость
     size: baseSize,
-    baseAlpha: isFar ? rand(0.10, 0.30) : rand(0.08, 0.22),
+    baseAlpha: isFar ? rand(0.10, 0.32) : rand(0.10, 0.26),
 
-    // “редкие искры” — только для deep, но мы оставим флаг
     sparkle: Math.random() < (isFar ? 0.05 : 0.03),
     sparkleT: rand(0, 9999),
   };
 }
 
 function initParticles() {
-  // количество — умеренно, чтобы не перегружать
-  const farCount  = Math.round((w*h) / 45000); // ~20-40 на 1080p
-  const nearCount = Math.round((w*h) / 28000); // ~40-70 на 1080p
+  const farCount  = Math.round((w*h) / 45000);
+  const nearCount = Math.round((w*h) / 28000);
 
-  particlesFar = Array.from({length: Math.min(120, Math.max(18, farCount))}, () => makeParticle("far"));
+  particlesFar  = Array.from({length: Math.min(120, Math.max(18, farCount))},  () => makeParticle("far"));
   particlesNear = Array.from({length: Math.min(180, Math.max(28, nearCount))}, () => makeParticle("near"));
 }
 
 /* ===========================
-   РЕНДЕР СЛОЁВ
+   RESIZE (ВАЖНО!)
+=========================== */
+
+function resize() {
+  DPR = clamp(window.devicePixelRatio || 1, 1, 2); // производительность
+  w = Math.floor(window.innerWidth);
+  h = Math.floor(window.innerHeight);
+
+  canvas.width  = Math.floor(w * DPR);
+  canvas.height = Math.floor(h * DPR);
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+  cx = w / 2;
+  cy = h / 2;
+
+  placeCores();     // FIX: ставим ядра после расчёта cx/cy
+  initParticles();  // пересоздаём фон под новый размер
+}
+window.addEventListener("resize", resize);
+
+/* ===========================
+   РЕНДЕР
 =========================== */
 
 let t = 0;
 
 function drawBackground() {
-  // Дыхание фона: меняем радиальный градиент очень мягко
-  const breathe = (Math.sin(t * 0.01) + 1) * 0.5; // 0..1
+  const breathe = (Math.sin(t * 0.01) + 1) * 0.5;
 
   const grd = ctx.createRadialGradient(
     cx + (mode === "deep" ? (breathe - 0.5) * 30 : (breathe - 0.5) * 18),
@@ -194,7 +185,6 @@ function drawBackground() {
     grd.addColorStop(0.55, "#040611");
     grd.addColorStop(1, "#02030a");
   } else {
-    // светлый “утренний” режим — но не белый лист
     grd.addColorStop(0, "#f6f8ff");
     grd.addColorStop(0.65, "#e8edff");
     grd.addColorStop(1, "#dde4ff");
@@ -203,9 +193,12 @@ function drawBackground() {
   ctx.fillStyle = grd;
   ctx.fillRect(0,0,w,h);
 
-  // Очень деликатная “вуаль” для глубины (только deep)
   if (mode === "deep") {
     ctx.fillStyle = "rgba(10,14,28,0.10)";
+    ctx.fillRect(0,0,w,h);
+  } else {
+    // лёгкая “вуаль”, чтобы белый не был пустым
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
     ctx.fillRect(0,0,w,h);
   }
 }
@@ -213,79 +206,76 @@ function drawBackground() {
 function updateAndDrawParticles(list, layer) {
   const isFar = layer === "far";
 
-  // В deep частицы чуть заметнее. В focus — мягче.
-  const alphaMul = (mode === "deep") ? (isFar ? 1.0 : 0.95) : (isFar ? 0.55 : 0.45);
-  const speedMul = (mode === "deep") ? 1.0 : 1.15; // в фокусе чуть “живее”, но легче визуально
+  // делаем частицы ВИДИМЫМИ и в focus
+  const alphaMul = (mode === "deep")
+    ? (isFar ? 1.0 : 0.95)
+    : (isFar ? 0.85 : 0.70);
+
+  const speedMul = (mode === "deep") ? 1.0 : 1.12;
 
   for (const p of list) {
-    // движение + “глубина”
     p.x += p.vx * speedMul * (0.6 + p.z);
     p.y += p.vy * speedMul * (0.6 + p.z);
+
     p.z += p.vz;
     if (p.z < 0.15 || p.z > 1.15) p.vz *= -1;
 
-    // заворот по краям (чтобы бесконечно)
     if (p.x < -20) p.x = w + 20;
     if (p.x > w + 20) p.x = -20;
     if (p.y < -20) p.y = h + 20;
     if (p.y > h + 20) p.y = -20;
 
-    // мерцание
     p.tw += p.twSpeed;
     const twinkle = 0.65 + 0.35 * Math.sin(p.tw);
 
-    // редкие искры: вспышка на долю секунды (только deep)
     let spark = 0;
     if (mode === "deep" && p.sparkle) {
       p.sparkleT += 1;
-      // каждые ~300-700 кадров шанс на вспышку
-      if ((p.sparkleT % Math.floor(300 + Math.random()*450)) === 0) {
-        p.sparkleT = 1;
-      }
-      if (p.sparkleT > 0 && p.sparkleT < 25) {
-        // вспышка затухает
-        spark = (25 - p.sparkleT) / 25; // 1..0
-      }
+      if ((p.sparkleT % Math.floor(320 + Math.random()*520)) === 0) p.sparkleT = 1;
+      if (p.sparkleT > 0 && p.sparkleT < 25) spark = (25 - p.sparkleT) / 25;
       if (p.sparkleT >= 25) p.sparkleT = 0;
     }
 
-    // цвет частиц зависит от режима
-    // deep: холодные искры
-    // focus: тёплая пыльца
     let r,g,b;
     if (mode === "deep") {
-      r = 170; g = 200; b = 255;
+      r = 170; g = 200; b = 255; // холодные искры
     } else {
-      r = 255; g = 235; b = 205;
+      r = 115; g = 130; b = 185; // дневная “пыль” (чётко на светлом)
     }
 
-    const a = Math.min(0.55,
-      (p.baseAlpha * alphaMul) * twinkle + spark * (isFar ? 0.25 : 0.18)
+    const a = Math.min(0.65,
+      (p.baseAlpha * alphaMul) * twinkle + spark * (isFar ? 0.22 : 0.16)
     );
 
-    const s = p.size * (0.75 + p.z * 0.8) * (mode === "deep" ? 1.0 : 0.9);
+    const s = p.size * (0.75 + p.z * 0.8) * (mode === "deep" ? 1.0 : 0.95);
 
-    // точка
     ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
     ctx.beginPath();
     ctx.arc(p.x, p.y, s, 0, Math.PI*2);
     ctx.fill();
 
-    // лёгкое “свечение” только для deep и только для ближних
     if (mode === "deep" && !isFar) {
       ctx.fillStyle = `rgba(${r},${g},${b},${a * 0.18})`;
       ctx.beginPath();
       ctx.arc(p.x, p.y, s*3.0, 0, Math.PI*2);
       ctx.fill();
     }
+
+    if (mode === "focus" && !isFar) {
+      // на светлом — мягкая “дымка” вокруг, очень тонко
+      ctx.fillStyle = `rgba(${r},${g},${b},${a * 0.10})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, s*3.2, 0, Math.PI*2);
+      ctx.fill();
+    }
   }
 }
 
 function drawFlows() {
-  ctx.lineWidth = mode === "deep" ? 1.2 : 1.6;
+  ctx.lineWidth = mode === "deep" ? 1.2 : 1.8;
   ctx.strokeStyle = mode === "deep"
-    ? "rgba(140,180,255,0.24)"
-    : "rgba(60,80,160,0.28)";
+    ? "rgba(140,180,255,0.26)"
+    : "rgba(70,90,165,0.42)"; // усилено для светлого
 
   flows.forEach(([a,b], i) => {
     const A = cores[a];
@@ -308,27 +298,26 @@ function drawCores() {
     c.phase += (mode === "deep" ? 0.010 : 0.014);
     const pulse = Math.sin(c.phase) * (mode === "deep" ? 2.2 : 1.6);
 
-    // основная сфера
+    const fill = (mode === "deep")
+      ? "rgba(120,160,255,0.88)"
+      : "rgba(55,75,155,0.96)"; // усилено
+
+    // сфера
     ctx.beginPath();
     ctx.arc(c.x, c.y, c.r + pulse, 0, Math.PI*2);
-
-    const fill = (mode === "deep")
-      ? "rgba(120,160,255,0.85)"
-      : "rgba(60,80,160,0.90)";
-
     ctx.fillStyle = fill;
     ctx.shadowColor = fill;
-    ctx.shadowBlur = (mode === "deep" ? 22 : 12);
+    ctx.shadowBlur = (mode === "deep" ? 22 : 16);
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // тонкая “аура” (очень деликатно)
+    // аура
     ctx.strokeStyle = (mode === "deep")
       ? "rgba(180,210,255,0.22)"
-      : "rgba(60,80,160,0.18)";
+      : "rgba(55,75,155,0.24)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(c.x, c.y, c.r + pulse + (mode === "deep" ? 10 : 8), 0, Math.PI*2);
+    ctx.arc(c.x, c.y, c.r + pulse + (mode === "deep" ? 10 : 9), 0, Math.PI*2);
     ctx.stroke();
   }
 }
@@ -337,23 +326,17 @@ function animate() {
   t++;
 
   drawBackground();
-
-  // живой фон: дальний слой → ближний
   updateAndDrawParticles(particlesFar, "far");
   updateAndDrawParticles(particlesNear, "near");
-
-  // поле
   drawFlows();
   drawCores();
 
   requestAnimationFrame(animate);
 }
 
-/* init */
-placeCores();
-resize();        // resize сам вызовет initParticles()
+/* старт */
+resize();
 animate();
-
 </script>
 </body>
 </html>
