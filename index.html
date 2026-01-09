@@ -2,9 +2,19 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8"/>
-  <title>Поля и Потоки</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Поля и Потоки — v0.3</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <style>
+    :root{
+      --ui-bg-dark: rgba(255,255,255,0.08);
+      --ui-brd-dark: rgba(255,255,255,0.12);
+      --ui-txt-dark: #fff;
+
+      --ui-bg-light: rgba(0,0,0,0.06);
+      --ui-brd-light: rgba(0,0,0,0.12);
+      --ui-txt-light: #111;
+    }
+
     html, body {
       margin: 0;
       padding: 0;
@@ -14,6 +24,51 @@
     }
     canvas { display:block; }
 
+    /* Верхняя панель */
+    .topbar{
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .pill{
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: var(--ui-bg-dark);
+      border: 1px solid var(--ui-brd-dark);
+      color: var(--ui-txt-dark);
+      backdrop-filter: blur(8px);
+      user-select: none;
+      font-size: 13px;
+      line-height: 1;
+    }
+    .pill.light{
+      background: var(--ui-bg-light);
+      border: 1px solid var(--ui-brd-light);
+      color: var(--ui-txt-light);
+    }
+    .kbd{
+      opacity: .75;
+      font-variant-numeric: tabular-nums;
+      border: 1px solid rgba(255,255,255,.18);
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .pill.light .kbd{
+      border-color: rgba(0,0,0,.18);
+    }
+
+    /* Кнопка режима */
     .mode-toggle {
       position: fixed;
       top: 14px;
@@ -21,322 +76,993 @@
       width: 42px;
       height: 42px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.08);
-      backdrop-filter: blur(6px);
-      border: 1px solid rgba(255,255,255,0.12);
-      color: #fff;
+      background: var(--ui-bg-dark);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--ui-brd-dark);
+      color: var(--ui-txt-dark);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 18px;
-      transition: all .3s ease;
+      transition: all .25s ease;
       user-select: none;
+      z-index: 50;
     }
     .mode-toggle.light {
-      background: rgba(0,0,0,0.06);
+      background: var(--ui-bg-light);
+      border: 1px solid var(--ui-brd-light);
+      color: var(--ui-txt-light);
+    }
+
+    /* Боковая панель */
+    .panel{
+      position: fixed;
+      top: 12px;
+      bottom: 12px;
+      right: 12px;
+      width: min(380px, calc(100vw - 24px));
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--ui-brd-dark);
+      background: rgba(10,14,28,0.58);
+      color: #eaf2ff;
+      padding: 14px;
+      box-sizing: border-box;
+      transform: translateX(110%);
+      transition: transform .22s ease;
+      z-index: 40;
+      overflow: hidden;
+    }
+    .panel.open{ transform: translateX(0); }
+    .panel.light{
+      background: rgba(255,255,255,0.72);
+      border: 1px solid var(--ui-brd-light);
       color: #111;
-      border: 1px solid rgba(0,0,0,0.10);
+    }
+
+    .panel h3{
+      margin: 4px 0 10px;
+      font-size: 14px;
+      opacity: .9;
+      font-weight: 650;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      margin: 10px 0;
+    }
+
+    .btn{
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: inherit;
+      padding: 9px 10px;
+      border-radius: 12px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 13px;
+    }
+    .panel.light .btn{
+      border-color: rgba(0,0,0,0.12);
+      background: rgba(0,0,0,0.04);
+    }
+
+    .input, .textarea{
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: inherit;
+      border-radius: 12px;
+      padding: 10px 10px;
+      outline: none;
+      font-size: 14px;
+    }
+    .panel.light .input, .panel.light .textarea{
+      border-color: rgba(0,0,0,0.14);
+      background: rgba(0,0,0,0.03);
+    }
+    .textarea{ min-height: 140px; resize: vertical; }
+
+    .muted{
+      opacity: .7;
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    /* Поиск */
+    .searchOverlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 10vh;
+      z-index: 60;
+    }
+    .searchOverlay.open{ display:flex; }
+
+    .searchBox{
+      width: min(720px, calc(100vw - 24px));
+      border-radius: 18px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(10,14,28,0.72);
+      color: #eaf2ff;
+      overflow: hidden;
+    }
+    .searchBox.light{
+      background: rgba(255,255,255,0.86);
+      border-color: rgba(0,0,0,0.12);
+      color: #111;
+    }
+
+    .searchInput{
+      width: 100%;
+      border: 0;
+      outline: none;
+      padding: 14px 14px;
+      font-size: 16px;
+      background: transparent;
+      color: inherit;
+      box-sizing: border-box;
+    }
+
+    .results{
+      max-height: 42vh;
+      overflow: auto;
+      border-top: 1px solid rgba(255,255,255,0.12);
+    }
+    .searchBox.light .results{ border-top-color: rgba(0,0,0,0.10); }
+
+    .item{
+      padding: 10px 14px;
+      cursor: pointer;
+      display:flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      font-size: 14px;
+    }
+    .item:hover{ background: rgba(255,255,255,0.06); }
+    .searchBox.light .item:hover{ background: rgba(0,0,0,0.04); }
+
+    .tag{
+      opacity:.7;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    /* Небольшие подсказки */
+    .hint{
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      padding: 10px 12px;
+      border-radius: 16px;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(10,14,28,0.45);
+      color: #eaf2ff;
+      font-size: 12px;
+      opacity: .9;
+      z-index: 30;
+      max-width: min(520px, calc(100vw - 24px));
+      user-select: none;
+      pointer-events: none;
+    }
+    .hint.light{
+      border-color: rgba(0,0,0,0.12);
+      background: rgba(255,255,255,0.68);
+      color: #111;
     }
   </style>
 </head>
 <body>
 
 <canvas id="field"></canvas>
+
+<div class="topbar" id="topbar">
+  <div class="pill" id="pillHelp">
+    Двойной клик: создать • Перетаскивай объекты • Панорама: тащи фон • Зум: колесо
+  </div>
+  <div class="pill" id="pillSearch">
+    Поиск <span class="kbd">Ctrl</span>+<span class="kbd">K</span>
+  </div>
+</div>
+
 <div class="mode-toggle" id="modeToggle" title="Переключить состояние">◐</div>
+
+<div class="panel" id="panel">
+  <div class="row" style="justify-content: space-between;">
+    <h3 id="panelTitle" style="margin:0;">…</h3>
+    <button class="btn" id="panelClose">Закрыть</button>
+  </div>
+
+  <div class="muted" id="panelMeta"></div>
+
+  <div style="height:10px;"></div>
+
+  <div class="muted" style="margin-bottom:6px;">Название</div>
+  <input class="input" id="editTitle" placeholder="Название"/>
+
+  <div style="height:10px;"></div>
+
+  <div class="muted" style="margin-bottom:6px;">Текст</div>
+  <textarea class="textarea" id="editBody" placeholder="Смысл, формулировка, пример…"></textarea>
+
+  <div style="height:12px;"></div>
+
+  <div class="row" style="justify-content: space-between;">
+    <button class="btn" id="btnFocus">Прыжок к объекту</button>
+    <button class="btn" id="btnDelete">Удалить</button>
+  </div>
+
+  <div style="height:10px;"></div>
+
+  <div class="muted" id="panelHint">
+    Подсказка: двойной клик по ядру — добавить мысль рядом. Двойной клик по пустоте — создать новое ядро.
+  </div>
+</div>
+
+<div class="searchOverlay" id="searchOverlay">
+  <div class="searchBox" id="searchBox">
+    <input class="searchInput" id="searchInput" placeholder="Найти ядро или мысль… (Esc — закрыть)"/>
+    <div class="results" id="results"></div>
+  </div>
+</div>
+
+<div class="hint" id="hint">
+  Навигация: клик — открыть панель • двойной клик по пустоте — новое ядро • двойной клик по ядру — новая мысль • Ctrl+K — поиск
+</div>
 
 <script>
 /* =========================================================
-   v0.2.1 — FIX: ядра/потоки снова видны + дневной режим читается
+   Поля и Потоки v0.3
+   - Перетаскивание объектов
+   - Панорама и зум
+   - Создание ядер/узлов (двойной клик)
+   - Боковая панель редактирования
+   - Поиск Ctrl+K (прыжок)
+   - localStorage сохранение
+   - Живой фон (deep/focus)
 ========================================================= */
 
 const canvas = document.getElementById("field");
 const ctx = canvas.getContext("2d");
 
-let w, h, cx, cy, DPR;
+const elToggle = document.getElementById("modeToggle");
+const elPanel = document.getElementById("panel");
+const elPanelClose = document.getElementById("panelClose");
+const elPanelTitle = document.getElementById("panelTitle");
+const elPanelMeta = document.getElementById("panelMeta");
+const elEditTitle = document.getElementById("editTitle");
+const elEditBody = document.getElementById("editBody");
+const elBtnFocus = document.getElementById("btnFocus");
+const elBtnDelete = document.getElementById("btnDelete");
 
-function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
-function rand(min, max){ return min + Math.random() * (max - min); }
+const elTopbar = document.getElementById("topbar");
+const elPillHelp = document.getElementById("pillHelp");
+const elPillSearch = document.getElementById("pillSearch");
+const elHint = document.getElementById("hint");
 
-/* ===========================
-   РЕЖИМ
-=========================== */
+const elSearchOverlay = document.getElementById("searchOverlay");
+const elSearchBox = document.getElementById("searchBox");
+const elSearchInput = document.getElementById("searchInput");
+const elResults = document.getElementById("results");
+
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function rand(min,max){ return min + Math.random()*(max-min); }
+function uid(prefix="id"){ return prefix + "_" + Math.random().toString(16).slice(2) + Date.now().toString(16); }
 
 let mode = "deep"; // deep | focus
-const toggle = document.getElementById("modeToggle");
-toggle.onclick = () => {
-  mode = mode === "deep" ? "focus" : "deep";
-  toggle.classList.toggle("light", mode === "focus");
+
+/* ---------- Камера (панорама/зум) ---------- */
+let view = {
+  x: 0, y: 0,   // смещение мира
+  z: 1.0        // zoom
 };
 
-/* ===========================
-   ЯДРА
-=========================== */
-
-const cores = [
-  { x: 0, y: 0, r: 26, phase: Math.random()*10 },
-  { x: 0, y: 0, r: 22, phase: Math.random()*10 },
-  { x: 0, y: 0, r: 28, phase: Math.random()*10 },
-  { x: 0, y: 0, r: 20, phase: Math.random()*10 },
-];
-
-function placeCores(){
-  // размещение относительно центра (после resize!)
-  cores[0].x = cx - 220; cores[0].y = cy - 80;
-  cores[1].x = cx + 180; cores[1].y = cy - 120;
-  cores[2].x = cx + 120; cores[2].y = cy + 140;
-  cores[3].x = cx - 160; cores[3].y = cy + 160;
-}
-
-/* ===========================
-   ПОТОКИ
-=========================== */
-
-const flows = [
-  [0,1],
-  [1,2],
-  [2,3],
-  [3,0]
-];
-
-/* ===========================
-   ФОН: ЧАСТИЦЫ
-=========================== */
-
-let particlesFar = [];
-let particlesNear = [];
-
-function makeParticle(layer) {
-  const isFar = layer === "far";
-  const baseSize = isFar ? rand(0.4, 1.2) : rand(0.8, 2.2);
-
-  return {
-    x: rand(0, w),
-    y: rand(0, h),
-
-    vx: isFar ? rand(-0.06, 0.06) : rand(-0.14, 0.14),
-    vy: isFar ? rand(-0.04, 0.04) : rand(-0.10, 0.10),
-
-    z: rand(0.2, 1.0),
-    vz: isFar ? rand(-0.0006, 0.0006) : rand(-0.0012, 0.0012),
-
-    tw: rand(0, Math.PI*2),
-    twSpeed: isFar ? rand(0.008, 0.02) : rand(0.012, 0.03),
-
-    size: baseSize,
-    baseAlpha: isFar ? rand(0.10, 0.32) : rand(0.10, 0.26),
-
-    sparkle: Math.random() < (isFar ? 0.05 : 0.03),
-    sparkleT: rand(0, 9999),
-  };
-}
-
-function initParticles() {
-  const farCount  = Math.round((w*h) / 45000);
-  const nearCount = Math.round((w*h) / 28000);
-
-  particlesFar  = Array.from({length: Math.min(120, Math.max(18, farCount))},  () => makeParticle("far"));
-  particlesNear = Array.from({length: Math.min(180, Math.max(28, nearCount))}, () => makeParticle("near"));
-}
-
-/* ===========================
-   RESIZE (ВАЖНО!)
-=========================== */
-
-function resize() {
-  DPR = clamp(window.devicePixelRatio || 1, 1, 2); // производительность
+/* ---------- DPI ---------- */
+let w=0,h=0,cx=0,cy=0,DPR=1;
+function resize(){
+  DPR = clamp(window.devicePixelRatio||1, 1, 2);
   w = Math.floor(window.innerWidth);
   h = Math.floor(window.innerHeight);
+  canvas.width  = Math.floor(w*DPR);
+  canvas.height = Math.floor(h*DPR);
+  canvas.style.width = w+"px";
+  canvas.style.height = h+"px";
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  cx = w/2; cy = h/2;
 
-  canvas.width  = Math.floor(w * DPR);
-  canvas.height = Math.floor(h * DPR);
-  canvas.style.width = w + "px";
-  canvas.style.height = h + "px";
-
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-
-  cx = w / 2;
-  cy = h / 2;
-
-  placeCores();     // FIX: ставим ядра после расчёта cx/cy
-  initParticles();  // пересоздаём фон под новый размер
+  // UI light/dark
+  syncUITheme();
+  initParticles();
 }
 window.addEventListener("resize", resize);
 
-/* ===========================
-   РЕНДЕР
-=========================== */
+/* ---------- Данные ---------- */
+const STORAGE_KEY = "fields_flows_v03";
 
-let t = 0;
+let state = {
+  cores: [],
+  nodes: [],
+  edges: [] // связи ядро-узел и ядро-ядро (пока используем ядро->узел)
+};
 
-function drawBackground() {
-  const breathe = (Math.sin(t * 0.01) + 1) * 0.5;
+// выбрать объект
+let selected = null; // {type:'core'|'node', id:...}
 
+/* ---------- Инициализация по умолчанию ---------- */
+function defaultState(){
+  const c1 = {id: uid("core"), title:"Основы", body:"", x: -220, y: -80, r: 26};
+  const c2 = {id: uid("core"), title:"Практика", body:"", x: 180, y: -120, r: 22};
+  const c3 = {id: uid("core"), title:"Идеи", body:"", x: 120, y: 140, r: 28};
+  const c4 = {id: uid("core"), title:"Личное", body:"", x: -160, y: 160, r: 20};
+
+  return {
+    cores: [c1,c2,c3,c4],
+    nodes: [],
+    edges: [
+      {a:c1.id,b:c2.id,type:"flow"},
+      {a:c2.id,b:c3.id,type:"flow"},
+      {a:c3.id,b:c4.id,type:"flow"},
+      {a:c4.id,b:c1.id,type:"flow"},
+    ]
+  };
+}
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw){
+      state = defaultState();
+      // центрируем мир: чтобы дефолтные координаты были вокруг центра
+      view.x = cx; view.y = cy; view.z = 1.0;
+      save();
+      return;
+    }
+    state = JSON.parse(raw);
+    // базовая защита
+    if(!state || !Array.isArray(state.cores) || !Array.isArray(state.nodes) || !Array.isArray(state.edges)){
+      state = defaultState();
+    }
+    // если камеры не было — центрируем
+    if(!state._view){
+      view.x = cx; view.y = cy; view.z = 1.0;
+    } else {
+      view = state._view;
+    }
+  } catch(e){
+    state = defaultState();
+    view.x = cx; view.y = cy; view.z = 1.0;
+  }
+}
+
+function save(){
+  // сохраняем и камеру тоже
+  state._view = view;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+/* ---------- Координаты: экран <-> мир ---------- */
+function worldToScreen(wx, wy){
+  return {
+    x: (wx * view.z) + view.x,
+    y: (wy * view.z) + view.y
+  };
+}
+function screenToWorld(sx, sy){
+  return {
+    x: (sx - view.x) / view.z,
+    y: (sy - view.y) / view.z
+  };
+}
+
+/* ---------- Фон: частицы ---------- */
+let particlesFar=[], particlesNear=[];
+function makeParticle(layer){
+  const isFar = layer==="far";
+  const baseSize = isFar ? rand(0.4,1.2) : rand(0.8,2.2);
+  return {
+    x: rand(0,w), y: rand(0,h),
+    vx: isFar ? rand(-0.06,0.06) : rand(-0.14,0.14),
+    vy: isFar ? rand(-0.04,0.04) : rand(-0.10,0.10),
+    z: rand(0.2,1.0),
+    vz: isFar ? rand(-0.0006,0.0006) : rand(-0.0012,0.0012),
+    tw: rand(0,Math.PI*2),
+    twSpeed: isFar ? rand(0.008,0.02) : rand(0.012,0.03),
+    size: baseSize,
+    baseAlpha: isFar ? rand(0.10,0.32) : rand(0.10,0.26),
+    sparkle: Math.random() < (isFar ? 0.05 : 0.03),
+    sparkleT: rand(0,9999),
+  };
+}
+function initParticles(){
+  const farCount  = Math.round((w*h)/45000);
+  const nearCount = Math.round((w*h)/28000);
+  particlesFar  = Array.from({length: Math.min(120, Math.max(18, farCount))}, () => makeParticle("far"));
+  particlesNear = Array.from({length: Math.min(180, Math.max(28, nearCount))}, () => makeParticle("near"));
+}
+function drawBackground(t){
+  const breathe = (Math.sin(t*0.01)+1)*0.5;
   const grd = ctx.createRadialGradient(
-    cx + (mode === "deep" ? (breathe - 0.5) * 30 : (breathe - 0.5) * 18),
-    cy + (mode === "deep" ? (0.5 - breathe) * 24 : (0.5 - breathe) * 14),
+    cx + (mode==="deep" ? (breathe-0.5)*30 : (breathe-0.5)*18),
+    cy + (mode==="deep" ? (0.5-breathe)*24 : (0.5-breathe)*14),
     120,
     cx, cy,
-    Math.max(w, h)
+    Math.max(w,h)
   );
-
-  if (mode === "deep") {
+  if(mode==="deep"){
     grd.addColorStop(0, "#0b1022");
-    grd.addColorStop(0.55, "#040611");
+    grd.addColorStop(0.55,"#040611");
     grd.addColorStop(1, "#02030a");
-  } else {
+  }else{
     grd.addColorStop(0, "#f6f8ff");
-    grd.addColorStop(0.65, "#e8edff");
+    grd.addColorStop(0.65,"#e8edff");
     grd.addColorStop(1, "#dde4ff");
   }
-
   ctx.fillStyle = grd;
   ctx.fillRect(0,0,w,h);
 
-  if (mode === "deep") {
-    ctx.fillStyle = "rgba(10,14,28,0.10)";
+  if(mode==="deep"){
+    ctx.fillStyle="rgba(10,14,28,0.10)";
     ctx.fillRect(0,0,w,h);
-  } else {
-    // лёгкая “вуаль”, чтобы белый не был пустым
-    ctx.fillStyle = "rgba(255,255,255,0.35)";
+  }else{
+    ctx.fillStyle="rgba(255,255,255,0.35)";
     ctx.fillRect(0,0,w,h);
   }
 }
+function updateAndDrawParticles(list, layer, t){
+  const isFar = layer==="far";
+  const alphaMul = (mode==="deep") ? (isFar ? 1.0 : 0.95) : (isFar ? 0.85 : 0.70);
+  const speedMul = (mode==="deep") ? 1.0 : 1.12;
 
-function updateAndDrawParticles(list, layer) {
-  const isFar = layer === "far";
-
-  // делаем частицы ВИДИМЫМИ и в focus
-  const alphaMul = (mode === "deep")
-    ? (isFar ? 1.0 : 0.95)
-    : (isFar ? 0.85 : 0.70);
-
-  const speedMul = (mode === "deep") ? 1.0 : 1.12;
-
-  for (const p of list) {
-    p.x += p.vx * speedMul * (0.6 + p.z);
-    p.y += p.vy * speedMul * (0.6 + p.z);
-
+  for(const p of list){
+    p.x += p.vx * speedMul * (0.6+p.z);
+    p.y += p.vy * speedMul * (0.6+p.z);
     p.z += p.vz;
-    if (p.z < 0.15 || p.z > 1.15) p.vz *= -1;
-
-    if (p.x < -20) p.x = w + 20;
-    if (p.x > w + 20) p.x = -20;
-    if (p.y < -20) p.y = h + 20;
-    if (p.y > h + 20) p.y = -20;
+    if(p.z<0.15 || p.z>1.15) p.vz *= -1;
+    if(p.x<-20) p.x=w+20;
+    if(p.x>w+20) p.x=-20;
+    if(p.y<-20) p.y=h+20;
+    if(p.y>h+20) p.y=-20;
 
     p.tw += p.twSpeed;
-    const twinkle = 0.65 + 0.35 * Math.sin(p.tw);
+    const twinkle = 0.65 + 0.35*Math.sin(p.tw);
 
-    let spark = 0;
-    if (mode === "deep" && p.sparkle) {
+    let spark=0;
+    if(mode==="deep" && p.sparkle){
       p.sparkleT += 1;
-      if ((p.sparkleT % Math.floor(320 + Math.random()*520)) === 0) p.sparkleT = 1;
-      if (p.sparkleT > 0 && p.sparkleT < 25) spark = (25 - p.sparkleT) / 25;
-      if (p.sparkleT >= 25) p.sparkleT = 0;
+      if((p.sparkleT % Math.floor(320 + Math.random()*520))===0) p.sparkleT=1;
+      if(p.sparkleT>0 && p.sparkleT<25) spark=(25-p.sparkleT)/25;
+      if(p.sparkleT>=25) p.sparkleT=0;
     }
 
     let r,g,b;
-    if (mode === "deep") {
-      r = 170; g = 200; b = 255; // холодные искры
-    } else {
-      r = 115; g = 130; b = 185; // дневная “пыль” (чётко на светлом)
-    }
+    if(mode==="deep"){ r=170; g=200; b=255; }
+    else { r=115; g=130; b=185; }
 
-    const a = Math.min(0.65,
-      (p.baseAlpha * alphaMul) * twinkle + spark * (isFar ? 0.22 : 0.16)
-    );
-
-    const s = p.size * (0.75 + p.z * 0.8) * (mode === "deep" ? 1.0 : 0.95);
+    const a = Math.min(0.65, (p.baseAlpha*alphaMul)*twinkle + spark*(isFar?0.22:0.16));
+    const s = p.size*(0.75+p.z*0.8)*(mode==="deep"?1.0:0.95);
 
     ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, s, 0, Math.PI*2);
+    ctx.arc(p.x,p.y,s,0,Math.PI*2);
     ctx.fill();
 
-    if (mode === "deep" && !isFar) {
-      ctx.fillStyle = `rgba(${r},${g},${b},${a * 0.18})`;
+    if(mode==="deep" && !isFar){
+      ctx.fillStyle = `rgba(${r},${g},${b},${a*0.18})`;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, s*3.0, 0, Math.PI*2);
+      ctx.arc(p.x,p.y,s*3.0,0,Math.PI*2);
       ctx.fill();
     }
-
-    if (mode === "focus" && !isFar) {
-      // на светлом — мягкая “дымка” вокруг, очень тонко
-      ctx.fillStyle = `rgba(${r},${g},${b},${a * 0.10})`;
+    if(mode==="focus" && !isFar){
+      ctx.fillStyle = `rgba(${r},${g},${b},${a*0.10})`;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, s*3.2, 0, Math.PI*2);
+      ctx.arc(p.x,p.y,s*3.2,0,Math.PI*2);
       ctx.fill();
     }
   }
 }
 
-function drawFlows() {
-  ctx.lineWidth = mode === "deep" ? 1.2 : 1.8;
-  ctx.strokeStyle = mode === "deep"
-    ? "rgba(140,180,255,0.26)"
-    : "rgba(70,90,165,0.42)"; // усилено для светлого
+/* ---------- Рендер мира ---------- */
+function getCore(id){ return state.cores.find(c=>c.id===id); }
+function getNode(id){ return state.nodes.find(n=>n.id===id); }
 
-  flows.forEach(([a,b], i) => {
-    const A = cores[a];
-    const B = cores[b];
-    const sway = Math.sin(t*0.02 + i)*20 + Math.sin(t*0.006 + i*2.1)*10;
+function drawFlows(t){
+  // связи между ядрами (flow)
+  ctx.lineWidth = (mode==="deep") ? 1.2 : 1.8;
+  ctx.strokeStyle = (mode==="deep")
+    ? "rgba(140,180,255,0.26)"
+    : "rgba(70,90,165,0.42)";
+
+  for(const e of state.edges){
+    const A = getCore(e.a) || getNode(e.a);
+    const B = getCore(e.b) || getNode(e.b);
+    if(!A || !B) continue;
+
+    const As = worldToScreen(A.x, A.y);
+    const Bs = worldToScreen(B.x, B.y);
+
+    const sway = Math.sin(t*0.02 + (As.x+Bs.x)*0.001)*20 + Math.sin(t*0.006 + (As.y+Bs.y)*0.001)*10;
 
     ctx.beginPath();
-    ctx.moveTo(A.x, A.y);
+    ctx.moveTo(As.x, As.y);
     ctx.quadraticCurveTo(
-      (A.x + B.x)/2 + sway,
-      (A.y + B.y)/2 - sway,
-      B.x, B.y
+      (As.x+Bs.x)/2 + sway,
+      (As.y+Bs.y)/2 - sway,
+      Bs.x, Bs.y
     );
     ctx.stroke();
-  });
+  }
+
+  // связи core->node (тоньше)
+  ctx.lineWidth = (mode==="deep") ? 1.0 : 1.4;
+  ctx.strokeStyle = (mode==="deep")
+    ? "rgba(140,180,255,0.18)"
+    : "rgba(70,90,165,0.28)";
+
+  for(const n of state.nodes){
+    const c = getCore(n.coreId);
+    if(!c) continue;
+    const Cs = worldToScreen(c.x,c.y);
+    const Ns = worldToScreen(n.x,n.y);
+    ctx.beginPath();
+    ctx.moveTo(Cs.x, Cs.y);
+    ctx.lineTo(Ns.x, Ns.y);
+    ctx.stroke();
+  }
 }
 
-function drawCores() {
-  for (const c of cores) {
-    c.phase += (mode === "deep" ? 0.010 : 0.014);
-    const pulse = Math.sin(c.phase) * (mode === "deep" ? 2.2 : 1.6);
+function drawCores(t){
+  for(const c of state.cores){
+    c._phase = (c._phase ?? rand(0,10)) + (mode==="deep"?0.010:0.014);
+    const pulse = Math.sin(c._phase) * (mode==="deep"?2.2:1.6);
 
-    const fill = (mode === "deep")
-      ? "rgba(120,160,255,0.88)"
-      : "rgba(55,75,155,0.96)"; // усилено
+    const pos = worldToScreen(c.x, c.y);
+    const r = (c.r ?? 24) * view.z;
 
-    // сфера
+    const fill = (mode==="deep") ? "rgba(120,160,255,0.88)" : "rgba(55,75,155,0.96)";
+    const ring = (mode==="deep") ? "rgba(180,210,255,0.22)" : "rgba(55,75,155,0.24)";
+
+    // выделение
+    const isSel = selected && selected.type==="core" && selected.id===c.id;
+
     ctx.beginPath();
-    ctx.arc(c.x, c.y, c.r + pulse, 0, Math.PI*2);
+    ctx.arc(pos.x, pos.y, r + pulse, 0, Math.PI*2);
     ctx.fillStyle = fill;
     ctx.shadowColor = fill;
-    ctx.shadowBlur = (mode === "deep" ? 22 : 16);
+    ctx.shadowBlur = (mode==="deep"?22:16) + (isSel ? 10 : 0);
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // аура
-    ctx.strokeStyle = (mode === "deep")
-      ? "rgba(180,210,255,0.22)"
-      : "rgba(55,75,155,0.24)";
+    ctx.strokeStyle = ring;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(c.x, c.y, c.r + pulse + (mode === "deep" ? 10 : 9), 0, Math.PI*2);
+    ctx.arc(pos.x, pos.y, r + pulse + (mode==="deep"?10:9), 0, Math.PI*2);
     ctx.stroke();
+
+    // имя (UI-логика на Canvas — ок, потому что без супер-зумов)
+    const label = c.title || "…";
+    ctx.font = `${Math.max(12, 12*view.z)}px system-ui`;
+    ctx.fillStyle = (mode==="deep") ? "rgba(234,242,255,0.78)" : "rgba(20,25,40,0.72)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(label, pos.x, pos.y + r + 10);
   }
 }
 
-function animate() {
-  t++;
+function drawNodes(t){
+  for(const n of state.nodes){
+    n._phase = (n._phase ?? rand(0,10)) + (mode==="deep"?0.012:0.016);
+    const pulse = Math.sin(n._phase) * (mode==="deep"?1.4:1.1);
 
-  drawBackground();
-  updateAndDrawParticles(particlesFar, "far");
-  updateAndDrawParticles(particlesNear, "near");
-  drawFlows();
-  drawCores();
+    const pos = worldToScreen(n.x, n.y);
+    const r = (n.r ?? 10) * view.z;
 
-  requestAnimationFrame(animate);
+    const isSel = selected && selected.type==="node" && selected.id===n.id;
+
+    // узел — маленький световой сгусток
+    const fill = (mode==="deep") ? "rgba(170,205,255,0.70)" : "rgba(75,90,155,0.70)";
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, r + pulse, 0, Math.PI*2);
+    ctx.fillStyle = fill;
+    ctx.shadowColor = fill;
+    ctx.shadowBlur = (mode==="deep"?14:10) + (isSel?10:0);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // подпись узла (коротко)
+    const label = n.title || "…";
+    ctx.font = `${Math.max(11, 11*view.z)}px system-ui`;
+    ctx.fillStyle = (mode==="deep") ? "rgba(234,242,255,0.70)" : "rgba(20,25,40,0.60)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(label, pos.x, pos.y + r + 8);
+  }
 }
 
-/* старт */
+/* ---------- Хит-тест (клики по объектам) ---------- */
+function hitTest(sx, sy){
+  // проверяем узлы первыми (они маленькие, но обычно поверх)
+  for(let i=state.nodes.length-1;i>=0;i--){
+    const n = state.nodes[i];
+    const p = worldToScreen(n.x, n.y);
+    const r = (n.r ?? 10) * view.z;
+    const dx = sx - p.x, dy = sy - p.y;
+    if(dx*dx + dy*dy <= (r+10)*(r+10)) return {type:"node", id:n.id};
+  }
+  for(let i=state.cores.length-1;i>=0;i--){
+    const c = state.cores[i];
+    const p = worldToScreen(c.x, c.y);
+    const r = (c.r ?? 24) * view.z;
+    const dx = sx - p.x, dy = sy - p.y;
+    if(dx*dx + dy*dy <= (r+12)*(r+12)) return {type:"core", id:c.id};
+  }
+  return null;
+}
+
+/* ---------- Создание объектов ---------- */
+function createCoreAtWorld(wx, wy){
+  const c = {id: uid("core"), title:"Новый мир", body:"", x: wx, y: wy, r: 24};
+  state.cores.push(c);
+  save();
+  select({type:"core", id:c.id});
+  openPanel();
+}
+function createNodeForCore(coreId){
+  const c = getCore(coreId);
+  if(!c) return;
+  const angle = rand(0, Math.PI*2);
+  const dist = rand(70, 110);
+  const n = {
+    id: uid("node"),
+    coreId,
+    title: "Мысль",
+    body: "",
+    x: c.x + Math.cos(angle)*dist,
+    y: c.y + Math.sin(angle)*dist,
+    r: 10
+  };
+  state.nodes.push(n);
+  save();
+  select({type:"node", id:n.id});
+  openPanel();
+}
+
+/* ---------- Панель ---------- */
+function syncUITheme(){
+  const isLight = mode==="focus";
+  elToggle.classList.toggle("light", isLight);
+
+  elPanel.classList.toggle("light", isLight);
+  elSearchBox.classList.toggle("light", isLight);
+  elPillHelp.classList.toggle("light", isLight);
+  elPillSearch.classList.toggle("light", isLight);
+  elHint.classList.toggle("light", isLight);
+}
+
+function select(sel){
+  selected = sel;
+  if(!selected){
+    closePanel();
+    return;
+  }
+
+  let obj, meta = "";
+  if(sel.type==="core"){
+    obj = getCore(sel.id);
+    const count = state.nodes.filter(n=>n.coreId===sel.id).length;
+    meta = `Ядро • мыслей: ${count}`;
+  }else{
+    obj = getNode(sel.id);
+    const c = obj ? getCore(obj.coreId) : null;
+    meta = `Узел • внутри ядра: ${c ? (c.title||"…") : "—"}`;
+  }
+
+  elPanelTitle.textContent = obj ? (obj.title || "…") : "…";
+  elPanelMeta.textContent = meta;
+
+  elEditTitle.value = obj?.title ?? "";
+  elEditBody.value  = obj?.body ?? "";
+}
+
+function openPanel(){
+  elPanel.classList.add("open");
+}
+function closePanel(){
+  elPanel.classList.remove("open");
+}
+elPanelClose.onclick = closePanel;
+
+/* Автосохранение из полей */
+let editTimer = null;
+function scheduleEditSave(){
+  clearTimeout(editTimer);
+  editTimer = setTimeout(()=>{
+    if(!selected) return;
+    if(selected.type==="core"){
+      const c = getCore(selected.id); if(!c) return;
+      c.title = elEditTitle.value.trim() || "…";
+      c.body  = elEditBody.value || "";
+    }else{
+      const n = getNode(selected.id); if(!n) return;
+      n.title = elEditTitle.value.trim() || "…";
+      n.body  = elEditBody.value || "";
+    }
+    save();
+    // обновим заголовок панели
+    select(selected);
+  }, 120);
+}
+elEditTitle.addEventListener("input", scheduleEditSave);
+elEditBody.addEventListener("input", scheduleEditSave);
+
+elBtnFocus.onclick = ()=>{
+  if(!selected) return;
+  jumpToSelected();
+};
+
+elBtnDelete.onclick = ()=>{
+  if(!selected) return;
+
+  if(selected.type==="core"){
+    const id = selected.id;
+    // удалить узлы этого ядра
+    state.nodes = state.nodes.filter(n=>n.coreId!==id);
+    // удалить edges, где участвует
+    state.edges = state.edges.filter(e=>e.a!==id && e.b!==id);
+    // удалить ядро
+    state.cores = state.cores.filter(c=>c.id!==id);
+  }else{
+    const id = selected.id;
+    state.nodes = state.nodes.filter(n=>n.id!==id);
+  }
+  save();
+  selected = null;
+  closePanel();
+};
+
+/* ---------- Поиск ---------- */
+function openSearch(){
+  elSearchOverlay.classList.add("open");
+  elSearchInput.value = "";
+  renderResults([]);
+  elSearchInput.focus();
+}
+function closeSearch(){
+  elSearchOverlay.classList.remove("open");
+}
+function renderResults(items){
+  elResults.innerHTML = "";
+  if(items.length===0){
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `<span style="opacity:.7">Введите запрос…</span><span class="tag">Esc</span>`;
+    elResults.appendChild(div);
+    return;
+  }
+  for(const it of items){
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `<span>${escapeHtml(it.title)}</span><span class="tag">${it.type === "core" ? "ядро" : "узел"}</span>`;
+    div.onclick = ()=>{
+      closeSearch();
+      select({type: it.type, id: it.id});
+      openPanel();
+      jumpToSelected();
+    };
+    elResults.appendChild(div);
+  }
+}
+function escapeHtml(s){
+  return (s||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+}
+function searchItems(q){
+  q = (q||"").trim().toLowerCase();
+  if(!q) return [];
+  const res = [];
+  for(const c of state.cores){
+    const hay = (c.title+" "+(c.body||"")).toLowerCase();
+    if(hay.includes(q)) res.push({type:"core", id:c.id, title:c.title||"…"});
+  }
+  for(const n of state.nodes){
+    const hay = (n.title+" "+(n.body||"")).toLowerCase();
+    if(hay.includes(q)) res.push({type:"node", id:n.id, title:n.title||"…"});
+  }
+  // чуть ограничим
+  return res.slice(0, 20);
+}
+elSearchInput.addEventListener("input", ()=>{
+  renderResults(searchItems(elSearchInput.value));
+});
+elSearchOverlay.addEventListener("click", (e)=>{
+  if(e.target === elSearchOverlay) closeSearch();
+});
+window.addEventListener("keydown", (e)=>{
+  // Ctrl+K / Cmd+K
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="k"){
+    e.preventDefault();
+    openSearch();
+  }
+  if(e.key==="Escape"){
+    if(elSearchOverlay.classList.contains("open")) closeSearch();
+  }
+});
+
+/* ---------- Режим ---------- */
+elToggle.onclick = ()=>{
+  mode = (mode==="deep") ? "focus" : "deep";
+  syncUITheme();
+};
+
+/* ---------- Управление мышью: drag/pan/zoom + dblclick create ---------- */
+let pointer = {
+  down: false,
+  mode: "none", // "dragObject" | "pan"
+  lastX: 0, lastY: 0,
+  dragSel: null,
+};
+
+canvas.addEventListener("mousedown", (e)=>{
+  const sx = e.clientX, sy = e.clientY;
+  pointer.down = true;
+  pointer.lastX = sx; pointer.lastY = sy;
+
+  const hit = hitTest(sx, sy);
+  if(hit){
+    select(hit);
+    openPanel();
+
+    pointer.mode = "dragObject";
+    pointer.dragSel = hit;
+
+    // переносим выбранное наверх (чтобы ощущалось “схватил”)
+    if(hit.type==="core"){
+      const idx = state.cores.findIndex(c=>c.id===hit.id);
+      if(idx>=0){
+        const [c] = state.cores.splice(idx,1);
+        state.cores.push(c);
+      }
+    }else{
+      const idx = state.nodes.findIndex(n=>n.id===hit.id);
+      if(idx>=0){
+        const [n] = state.nodes.splice(idx,1);
+        state.nodes.push(n);
+      }
+    }
+  } else {
+    selected = null;
+    closePanel();
+    pointer.mode = "pan";
+    pointer.dragSel = null;
+  }
+});
+
+window.addEventListener("mousemove", (e)=>{
+  if(!pointer.down) return;
+  const sx = e.clientX, sy = e.clientY;
+  const dx = sx - pointer.lastX;
+  const dy = sy - pointer.lastY;
+  pointer.lastX = sx; pointer.lastY = sy;
+
+  if(pointer.mode==="pan"){
+    view.x += dx;
+    view.y += dy;
+    save();
+    return;
+  }
+
+  if(pointer.mode==="dragObject" && pointer.dragSel){
+    const worldDelta = { x: dx / view.z, y: dy / view.z };
+    if(pointer.dragSel.type==="core"){
+      const c = getCore(pointer.dragSel.id);
+      if(c){ c.x += worldDelta.x; c.y += worldDelta.y; save(); }
+    } else {
+      const n = getNode(pointer.dragSel.id);
+      if(n){ n.x += worldDelta.x; n.y += worldDelta.y; save(); }
+    }
+  }
+});
+
+window.addEventListener("mouseup", ()=>{
+  pointer.down = false;
+  pointer.mode = "none";
+  pointer.dragSel = null;
+});
+
+/* колесо — зум к курсору */
+canvas.addEventListener("wheel", (e)=>{
+  e.preventDefault();
+  const sx = e.clientX, sy = e.clientY;
+  const before = screenToWorld(sx, sy);
+
+  const zoomFactor = Math.exp(-e.deltaY * 0.0012);
+  const newZ = clamp(view.z * zoomFactor, 0.35, 2.6);
+  view.z = newZ;
+
+  const after = screenToWorld(sx, sy);
+  // компенсируем, чтобы точка под курсором оставалась на месте
+  view.x += (after.x - before.x) * view.z;
+  view.y += (after.y - before.y) * view.z;
+
+  save();
+}, {passive:false});
+
+/* двойной клик: пустота -> ядро, ядро -> узел */
+canvas.addEventListener("dblclick", (e)=>{
+  const sx = e.clientX, sy = e.clientY;
+  const hit = hitTest(sx, sy);
+  if(hit && hit.type==="core"){
+    createNodeForCore(hit.id);
+  }else if(!hit){
+    const wpos = screenToWorld(sx, sy);
+    createCoreAtWorld(wpos.x, wpos.y);
+  }
+});
+
+/* ---------- Прыжок к выбранному ---------- */
+function jumpToSelected(){
+  if(!selected) return;
+  let obj = selected.type==="core" ? getCore(selected.id) : getNode(selected.id);
+  if(!obj) return;
+
+  // мягко центрируем: анимация
+  const targetX = cx - (obj.x * view.z);
+  const targetY = cy - (obj.y * view.z);
+  const startX = view.x, startY = view.y;
+  const dur = 220;
+  const t0 = performance.now();
+
+  function step(now){
+    const k = clamp((now - t0)/dur, 0, 1);
+    const ease = 1 - Math.pow(1-k, 3);
+    view.x = startX + (targetX - startX) * ease;
+    view.y = startY + (targetY - startY) * ease;
+    if(k < 1) requestAnimationFrame(step);
+    else save();
+  }
+  requestAnimationFrame(step);
+}
+
+/* ---------- Рендер-цикл ---------- */
+let T = 0;
+function frame(){
+  T++;
+
+  // фон
+  drawBackground(T);
+  updateAndDrawParticles(particlesFar, "far", T);
+  updateAndDrawParticles(particlesNear,"near",T);
+
+  // мир (ядра/узлы/потоки)
+  drawFlows(T);
+  drawCores(T);
+  drawNodes(T);
+
+  requestAnimationFrame(frame);
+}
+
+/* ---------- Старт ---------- */
 resize();
-animate();
+load();
+syncUITheme();
+
+// если впервые — позиционируем дефолтные ядра вокруг центра
+if(!state._view){
+  view.x = cx;
+  view.y = cy;
+  view.z = 1.0;
+  save();
+}
+
+frame();
 </script>
 </body>
 </html>
