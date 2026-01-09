@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8"/>
-  <title>Поля и Потоки — v0.7</title>
+  <title>Поля и Потоки — v0.8</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 
   <!-- Шрифт -->
@@ -34,7 +34,10 @@
       overflow: hidden;
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
     }
-    canvas { display:block; }
+    canvas {
+      display:block;
+      touch-action: none; /* важно для iPad/телефона: панорама/пинч без скролла страницы */
+    }
 
     .mode-toggle {
       position: fixed;
@@ -91,7 +94,7 @@
       position: fixed;
       left: 14px;
       bottom: 64px;
-      width: 360px;
+      width: 380px;
       max-width: calc(100vw - 28px);
       border-radius: 16px;
       backdrop-filter: blur(10px);
@@ -132,6 +135,13 @@
       opacity: .9;
     }
     .help-pop.light .kbd{ border-color: rgba(0,0,0,.18); }
+
+    .help-actions{
+      display:flex;
+      gap:8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
 
     /* Панель редактирования */
     .panel{
@@ -245,7 +255,7 @@
       background: rgba(0,0,0,0.03);
     }
 
-    /* Toolbar (красивее и ровнее) */
+    /* Toolbar */
     .rtbar{
       display:flex;
       gap: 8px;
@@ -265,17 +275,31 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      transition: transform .08s ease, background .12s ease, border-color .12s ease;
+      transition: transform .08s ease, background .12s ease, border-color .12s ease, opacity .12s ease;
       font-size: 14px;
       padding: 0;
     }
+    .rtbtn svg{
+      width: 18px;
+      height: 18px;
+      display:block;
+      opacity: .92;
+    }
     .rtbtn:hover{ background: rgba(255,255,255,0.08); }
     .rtbtn:active{ transform: translateY(1px); }
+    .rtbtn.active{
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.22);
+    }
     .panel.light .rtbtn{
       border-color: rgba(0,0,0,0.12);
       background: rgba(0,0,0,0.03);
     }
     .panel.light .rtbtn:hover{ background: rgba(0,0,0,0.05); }
+    .panel.light .rtbtn.active{
+      background: rgba(0,0,0,0.08);
+      border-color: rgba(0,0,0,0.18);
+    }
 
     .rtsep{
       width: 1px;
@@ -300,6 +324,9 @@
       min-height: 108px;
       max-height: 320px;
       overflow: auto;
+
+      /* чтобы текстовый ввод не тянул всю страницу */
+      overscroll-behavior: contain;
     }
     .panel.light .editor{
       border-color: rgba(0,0,0,0.14);
@@ -395,8 +422,14 @@
     <li>Удалить выбранное: <span class="kbd">Del</span> / <span class="kbd">Backspace</span></li>
     <li>Размер важности: <span class="kbd">[</span> меньше • <span class="kbd">]</span> больше • <span class="kbd">Alt</span>+колесо</li>
     <li>Поиск: <span class="kbd">Ctrl</span>+<span class="kbd">K</span></li>
-    <li>Панорама: тащи фон • Зум: колесо</li>
+    <li>Панорама: тащи фон • Средняя кнопка: тянуть • Зум: колесо • На телефоне: 1 палец пан, 2 пальца пинч</li>
   </ul>
+
+  <div class="help-actions">
+    <button class="btn" id="btnExport" type="button" title="Скачать JSON">Экспорт</button>
+    <button class="btn" id="btnImport" type="button" title="Загрузить JSON">Импорт</button>
+    <input id="importFile" type="file" accept="application/json" style="display:none;">
+  </div>
 </div>
 
 <div class="panel" id="panel">
@@ -425,9 +458,31 @@
 
     <div class="rtsep"></div>
 
-    <button class="rtbtn" id="bLeft"   type="button" title="Влево">⟸</button>
-    <button class="rtbtn" id="bCenter" type="button" title="Центр">≡</button>
-    <button class="rtbtn" id="bRight"  type="button" title="Вправо">⟹</button>
+    <!-- Word-подобные иконки выравнивания -->
+    <button class="rtbtn" id="bLeft"   type="button" title="Влево" aria-label="Align Left">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M4 6h14"/>
+        <path d="M4 10h10"/>
+        <path d="M4 14h14"/>
+        <path d="M4 18h10"/>
+      </svg>
+    </button>
+    <button class="rtbtn" id="bCenter" type="button" title="Центр" aria-label="Align Center">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M5 6h14"/>
+        <path d="M7 10h10"/>
+        <path d="M5 14h14"/>
+        <path d="M7 18h10"/>
+      </svg>
+    </button>
+    <button class="rtbtn" id="bRight"  type="button" title="Вправо" aria-label="Align Right">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M6 6h14"/>
+        <path d="M10 10h10"/>
+        <path d="M6 14h14"/>
+        <path d="M10 18h10"/>
+      </svg>
+    </button>
   </div>
 
   <div class="editor" id="editBody" contenteditable="true" data-placeholder="Смысл, формулировка, пример…"></div>
@@ -442,12 +497,16 @@
 
 <script>
 /* =========================================================
-   Поля и Потоки v0.7
-   - Панель всегда справа от объекта (без налезания)
-   - Панель позиционируется заранее при полёте (предикт)
-   - Пульс-вспышка при ЛКМ выделении
-   - Хаотичное дыхание свечения (у каждого по-своему)
-   - Перенос названия (2 строки + …)
+   Поля и Потоки v0.8
+   FIX/UPD:
+   - Нормальные иконки выравнивания (как Word)
+   - Пинч-зум + панорама на iPad/телефон (Pointer Events)
+   - Панорама средней кнопкой мыши (MMB)
+   - Свечение как "дымка", без контурного кольца и без скачков на зуме
+   - Панель справа от объекта и центрирована по нему (реальная высота)
+   - Темный фон контрастнее
+   - Перенос названия: запрет "одна буква строкой" (простое исправление)
+   - Экспорт/Импорт JSON
 ========================================================= */
 
 const canvas = document.getElementById("field");
@@ -457,6 +516,9 @@ const elToggle = document.getElementById("modeToggle");
 
 const elHelpBtn = document.getElementById("helpBtn");
 const elHelpPop = document.getElementById("helpPop");
+const elBtnExport = document.getElementById("btnExport");
+const elBtnImport = document.getElementById("btnImport");
+const elImportFile = document.getElementById("importFile");
 
 const elPanel = document.getElementById("panel");
 const elPanelClose = document.getElementById("panelClose");
@@ -509,7 +571,7 @@ function resize(){
 window.addEventListener("resize", resize);
 
 /* ---------- Данные ---------- */
-const STORAGE_KEY = "fields_flows_v07";
+const STORAGE_KEY = "fields_flows_v08";
 
 let state = { cores: [], nodes: [] };
 let selected = null; // {type:'core'|'node', id:...}
@@ -554,7 +616,7 @@ function load(){
     view.x=cx; view.y=cy; view.z=1.0;
   }
 
-  // миграция
+  // миграция + нормализация
   for(const c of state.cores){
     if(c.body && !c.bodyHtml){ c.bodyHtml = escapeHtml(c.body); delete c.body; }
     if(!c.bodyHtml) c.bodyHtml = "";
@@ -597,6 +659,51 @@ window.addEventListener("mousedown",(e)=>{
   }
 });
 
+/* ---------- Export/Import ---------- */
+function download(filename, text){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], {type:"application/json"}));
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
+elBtnExport.addEventListener("click", ()=>{
+  const payload = JSON.stringify({ _v: "v08", state, _exportedAt: new Date().toISOString() }, null, 2);
+  download("fields_flows.json", payload);
+});
+elBtnImport.addEventListener("click", ()=> elImportFile.click());
+elImportFile.addEventListener("change", async ()=>{
+  const f = elImportFile.files && elImportFile.files[0];
+  if(!f) return;
+  try{
+    const txt = await f.text();
+    const data = JSON.parse(txt);
+    if(data && data.state && Array.isArray(data.state.cores) && Array.isArray(data.state.nodes)){
+      state = data.state;
+      if(state._view) view = state._view;
+      // ensure glow seeds
+      for(const c of state.cores) ensureGlow(c.id);
+      for(const n of state.nodes) ensureGlow(n.id);
+      save();
+      selected = null;
+      closePanel();
+    } else if(data && Array.isArray(data.cores) && Array.isArray(data.nodes)){
+      // если кто-то импортирует чисто state
+      state = data;
+      for(const c of state.cores) ensureGlow(c.id);
+      for(const n of state.nodes) ensureGlow(n.id);
+      save();
+      selected = null;
+      closePanel();
+    }
+  } catch(err){
+    // тихо игнорируем (можно добавить alert по желанию)
+  } finally {
+    elImportFile.value = "";
+  }
+});
+
 /* ---------- Particles ---------- */
 let particlesFar=[], particlesNear=[];
 function makeParticle(layer){
@@ -611,7 +718,7 @@ function makeParticle(layer){
     tw: rand(0,Math.PI*2),
     twSpeed: isFar ? rand(0.010,0.022) : rand(0.014,0.030),
     size: baseSize,
-    baseAlpha: isFar ? rand(0.10,0.28) : rand(0.08,0.20),
+    baseAlpha: isFar ? rand(0.10,0.26) : rand(0.07,0.18),
   };
 }
 function initParticles(){
@@ -622,24 +729,27 @@ function initParticles(){
 }
 function drawBackground(t){
   const breathe = (Math.sin(t*0.01)+1)*0.5;
+
+  // Сделали темную тему контрастнее/глубже
   const grd = ctx.createRadialGradient(
-    cx + (mode==="deep" ? (breathe-0.5)*30 : (breathe-0.5)*14),
-    cy + (mode==="deep" ? (0.5-breathe)*24 : (0.5-breathe)*10),
-    120, cx, cy, Math.max(w,h)
+    cx + (mode==="deep" ? (breathe-0.5)*34 : (breathe-0.5)*14),
+    cy + (mode==="deep" ? (0.5-breathe)*26 : (0.5-breathe)*10),
+    90, cx, cy, Math.max(w,h)
   );
+
   if(mode==="deep"){
-    grd.addColorStop(0, "#0b1022");
-    grd.addColorStop(0.55,"#040611");
-    grd.addColorStop(1, "#02030a");
+    grd.addColorStop(0, "#0f1736");
+    grd.addColorStop(0.45,"#05071a");
+    grd.addColorStop(1, "#01020a");
   }else{
-    grd.addColorStop(0, "#f7f9ff");
-    grd.addColorStop(0.6,"#edf1ff");
-    grd.addColorStop(1, "#e2e8ff");
+    grd.addColorStop(0, "#fbfcff");
+    grd.addColorStop(0.6,"#eef2ff");
+    grd.addColorStop(1, "#dfe6ff");
   }
   ctx.fillStyle = grd;
   ctx.fillRect(0,0,w,h);
 
-  ctx.fillStyle = (mode==="deep") ? "rgba(10,14,28,0.08)" : "rgba(255,255,255,0.10)";
+  ctx.fillStyle = (mode==="deep") ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.06)";
   ctx.fillRect(0,0,w,h);
 }
 function updateAndDrawParticles(list, layer, t){
@@ -647,8 +757,8 @@ function updateAndDrawParticles(list, layer, t){
   const speedMul = (mode==="deep") ? 1.0 : 1.05;
 
   let r,g,b;
-  if(mode==="deep"){ r=170; g=205; b=255; }
-  else { r=140; g=170; b=110; } // тёплый воздух, мягко
+  if(mode==="deep"){ r=175; g=215; b=255; }
+  else { r=130; g=155; b=95; } // мягкая "дневная" пыльца (меньше “грязи”)
 
   for(const p of list){
     p.x += p.vx * speedMul * (0.6+p.z);
@@ -663,8 +773,8 @@ function updateAndDrawParticles(list, layer, t){
     p.tw += p.twSpeed;
     const twinkle = 0.62 + 0.38*Math.sin(p.tw);
 
-    const alphaBoost = (mode==="deep") ? 1.0 : 0.55;
-    const a = Math.min(0.55, (p.baseAlpha*alphaBoost)*twinkle);
+    const alphaBoost = (mode==="deep") ? 1.0 : 0.78;
+    const a = Math.min(0.48, (p.baseAlpha*alphaBoost)*twinkle);
     const s = p.size*(0.75+p.z*0.85);
 
     ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
@@ -672,7 +782,7 @@ function updateAndDrawParticles(list, layer, t){
     ctx.arc(p.x,p.y,s,0,Math.PI*2);
     ctx.fill();
 
-    const glowA = (mode==="deep") ? (a*0.10) : (a*0.05);
+    const glowA = (mode==="deep") ? (a*0.10) : (a*0.06);
     ctx.fillStyle = `rgba(${r},${g},${b},${glowA})`;
     ctx.beginPath();
     ctx.arc(p.x,p.y,s*3.0,0,Math.PI*2);
@@ -709,19 +819,19 @@ function stripHtml(html){
   return (tmp.textContent || tmp.innerText || "").trim();
 }
 
-/* перенос на 2 строки + троеточие */
+/* перенос на 2 строки + троеточие + анти-однобуквенная строка */
 function drawWrappedLabel(text, x, y, maxWidth, lineHeight, maxLines){
   text = (text || "").trim();
   if(!text) return;
 
-  // если вообще без пробелов и очень длинно — нарежем
-  const words = text.includes(" ") ? text.split(/\s+/) : text.split("");
+  const hasSpaces = /\s/.test(text);
+  const words = hasSpaces ? text.split(/\s+/) : text.split("");
 
   const lines = [];
   let line = "";
 
   for(const w of words){
-    const test = line ? (line + (text.includes(" ") ? " " : "") + w) : w;
+    const test = line ? (line + (hasSpaces ? " " : "") + w) : w;
     if(ctx.measureText(test).width <= maxWidth){
       line = test;
     }else{
@@ -732,13 +842,25 @@ function drawWrappedLabel(text, x, y, maxWidth, lineHeight, maxLines){
   }
   if(lines.length < maxLines && line) lines.push(line);
 
+  // анти-однобуквенная строка (простая правка)
+  if(lines.length >= 2){
+    const last = lines[lines.length - 1].trim();
+    if(last.length === 1){
+      const prev = lines[lines.length - 2].trim();
+      const merged = (prev + " " + last).trim();
+      if(ctx.measureText(merged).width <= maxWidth){
+        lines[lines.length - 2] = merged;
+        lines.pop();
+      }
+    }
+  }
+
   // если переполнение — троеточие
   if(lines.length > maxLines) lines.length = maxLines;
   if(lines.length === maxLines){
-    // проверим, нужно ли урезать последнюю строку
-    let last = lines[maxLines-1];
-    const all = lines.join(" ");
-    if(all.length < text.length){
+    const combined = lines.join(" ");
+    if(combined.length < text.length){
+      let last = lines[maxLines-1];
       const ell = "…";
       while(ctx.measureText(last + ell).width > maxWidth && last.length>0){
         last = last.slice(0, -1);
@@ -757,7 +879,7 @@ function hsl(h,s,l,a=1){ return `hsla(${h},${s}%,${l}%,${a})`; }
 
 function drawEdges(t){
   const edges = getEdges();
-  const baseLine = (mode==="deep") ? "rgba(140,180,255,0.22)" : "rgba(55,70,120,0.18)";
+  const baseLine = (mode==="deep") ? "rgba(145,195,255,0.22)" : "rgba(55,70,120,0.20)";
   ctx.lineCap = "round";
 
   for(const E of edges){
@@ -802,11 +924,10 @@ function drawPulses(now){
     const r = (obj.r ?? (p.type==="core"?26:11)) * view.z;
     const k = (now - p.t0) / life; // 0..1
 
-    // кольцо растёт и затухает
-    const ringR = r + 10*view.z + k * (22*view.z);
-    const alpha = (1-k) * 0.35;
+    const ringR = r + 10 + k * 26;       // фикс в px (не зависит от zoom)
+    const alpha = (1-k) * 0.30;
 
-    ctx.strokeStyle = (mode==="deep") ? `rgba(180,220,255,${alpha})` : `rgba(55,90,130,${alpha*0.85})`;
+    ctx.strokeStyle = (mode==="deep") ? `rgba(190,230,255,${alpha})` : `rgba(55,90,130,${alpha*0.85})`;
     ctx.lineWidth = 2.0;
     ctx.beginPath();
     ctx.arc(s.x, s.y, ringR, 0, Math.PI*2);
@@ -814,16 +935,33 @@ function drawPulses(now){
   }
 }
 
-/* хаотичное дыхание свечения (всегда вне круга) */
-function glowOuterRadius(baseR, id, t){
+/* дымка-свечение (хаотичная, но без "контурного кольца") */
+function drawSmokyGlow(posX, posY, r, id, hue, t, isSel){
   const s = ensureGlow(id);
+
+  // хаос размера, но в пикселях (чтобы при зуме не "взрывалось")
   const a = Math.sin(t*0.018 + s.a);
   const b = Math.sin(t*0.011 + s.b);
   const c = Math.sin(t*0.007 + s.c);
   const osc = (a*0.55 + b*0.30 + c*0.20); // -..+
-  const amp = 10 * view.z;               // амплитуда
-  const pad = 10 * view.z;               // гарантируем отступ от круга
-  return baseR + pad + (amp * osc);
+  const pad = 10;                         // отступ от круга
+  const thicknessBase = (isSel ? 34 : 28);
+  const thickness = thicknessBase + osc*8;
+
+  const inner = r + pad;
+  const outer = inner + thickness;
+
+  const alpha = (mode==="deep") ? 0.22 : 0.16;
+
+  const g = ctx.createRadialGradient(posX, posY, inner, posX, posY, outer);
+  g.addColorStop(0.0, hsl(hue, 95, (mode==="deep"?72:58), alpha));
+  g.addColorStop(0.55, hsl(hue, 95, (mode==="deep"?72:58), alpha*0.35));
+  g.addColorStop(1.0, "rgba(0,0,0,0)");
+
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(posX, posY, outer, 0, Math.PI*2);
+  ctx.fill();
 }
 
 function drawCore(c, t){
@@ -834,35 +972,30 @@ function drawCore(c, t){
   const hue = c.hue ?? 210;
   const isSel = selected && selected.type==="core" && selected.id===c.id;
 
-  const fill = (mode==="deep") ? hsl(hue, 85, 65, 0.94) : hsl(hue, 70, 46, 0.92);
+  // дымка вокруг
+  drawSmokyGlow(pos.x, pos.y, r, c.id, hue, t, isSel);
 
-  // внешний хаотичный halo (вне круга)
-  const outerR = glowOuterRadius(r, c.id, t);
-  const haloA = (mode==="deep") ? 0.28 : 0.20;
-  ctx.strokeStyle = hsl(hue, 90, 72, haloA);
-  ctx.lineWidth = 2.0;
-  ctx.beginPath();
-  ctx.arc(pos.x, pos.y, outerR, 0, Math.PI*2);
-  ctx.stroke();
+  const fill = (mode==="deep") ? hsl(hue, 85, 65, 0.96) : hsl(hue, 70, 46, 0.92);
 
-  // мягкая тень-свечение (тоже снаружи — за счёт shadowBlur)
   ctx.shadowColor = fill;
-  ctx.shadowBlur = ((mode==="deep" ? 24 : 16) + (isSel ? 10 : 0)) * clamp(view.z, 0.6, 1.3);
+  ctx.shadowBlur = (mode==="deep" ? 22 : 14) + (isSel ? 8 : 0);
 
   ctx.fillStyle = fill;
   ctx.beginPath();
   ctx.arc(pos.x, pos.y, r, 0, Math.PI*2);
   ctx.fill();
-
   ctx.shadowBlur = 0;
 
   const label = (c.title ?? "").trim();
   if(label){
     ctx.font = `${Math.max(12, 12*view.z)}px Inter, system-ui`;
-    ctx.fillStyle = (mode==="deep") ? "rgba(234,242,255,0.82)" : "rgba(18,22,35,0.72)";
+    ctx.fillStyle = (mode==="deep") ? "rgba(234,242,255,0.86)" : "rgba(18,22,35,0.76)";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    const maxW = Math.max(120, r*3.2);
+
+    // шире, чтобы не было ощущения "один word на строку"
+    const maxW = clamp(Math.max(220, r*3.8), 220, 520);
+
     drawWrappedLabel(label, pos.x, pos.y + r + 10, maxW, Math.max(14, 14*view.z), 2);
   }
 }
@@ -875,33 +1008,27 @@ function drawNode(n, t){
   const hue = n.hue ?? 205;
   const isSel = selected && selected.type==="node" && selected.id===n.id;
 
-  const fill = (mode==="deep") ? hsl(hue, 90, 76, 0.93) : hsl(hue, 78, 54, 0.90);
+  drawSmokyGlow(pos.x, pos.y, r, n.id, hue, t, isSel);
 
-  const outerR = glowOuterRadius(r, n.id, t);
-  const haloA = (mode==="deep") ? 0.24 : 0.18;
-  ctx.strokeStyle = hsl(hue, 90, 76, haloA);
-  ctx.lineWidth = 2.0;
-  ctx.beginPath();
-  ctx.arc(pos.x, pos.y, outerR, 0, Math.PI*2);
-  ctx.stroke();
+  const fill = (mode==="deep") ? hsl(hue, 92, 76, 0.95) : hsl(hue, 78, 54, 0.90);
 
   ctx.shadowColor = fill;
-  ctx.shadowBlur = ((mode==="deep" ? 18 : 14) + (isSel ? 8 : 0)) * clamp(view.z, 0.6, 1.3);
+  ctx.shadowBlur = (mode==="deep" ? 16 : 12) + (isSel ? 6 : 0);
 
   ctx.fillStyle = fill;
   ctx.beginPath();
   ctx.arc(pos.x, pos.y, r, 0, Math.PI*2);
   ctx.fill();
-
   ctx.shadowBlur = 0;
 
   const label = (n.title ?? "").trim();
   if(label){
     ctx.font = `${Math.max(11, 11*view.z)}px Inter, system-ui`;
-    ctx.fillStyle = (mode==="deep") ? "rgba(234,242,255,0.75)" : "rgba(18,22,35,0.62)";
+    ctx.fillStyle = (mode==="deep") ? "rgba(234,242,255,0.78)" : "rgba(18,22,35,0.68)";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    const maxW = Math.max(110, r*3.0);
+
+    const maxW = clamp(Math.max(210, r*3.6), 210, 500);
     drawWrappedLabel(label, pos.x, pos.y + r + 8, maxW, Math.max(13, 13*view.z), 2);
   }
 }
@@ -911,7 +1038,7 @@ function drawWorld(t){
   for(const c of state.cores) drawCore(c, t);
   for(const n of state.nodes) drawNode(n, t);
 
-  // выбранное сверху (не меняем массивы)
+  // выбранное сверху
   if(selected){
     if(selected.type==="core"){
       const c = getCore(selected.id); if(c) drawCore(c, t);
@@ -985,6 +1112,9 @@ function createNode(parentType, parentId, coreId){
 function openPanel(){
   elPanel.classList.add("open");
   refreshPanelFields();
+
+  // после открытия есть реальная высота -> центрируем точно
+  requestAnimationFrame(()=> positionPanelRightOfSelected());
 }
 function closePanel(){
   elPanel.classList.remove("open");
@@ -1012,6 +1142,9 @@ function refreshPanelFields(){
 
   elEditTitle.value = obj.title ?? "";
   elEditBody.innerHTML  = obj.bodyHtml ?? "";
+
+  // синк активных кнопок align (по computed style)
+  syncAlignButtons();
 }
 
 function scheduleEditSave(){
@@ -1028,7 +1161,10 @@ function scheduleEditSave(){
   }, 120);
 }
 elEditTitle.addEventListener("input", scheduleEditSave);
-elEditBody.addEventListener("input", scheduleEditSave);
+elEditBody.addEventListener("input", ()=>{
+  scheduleEditSave();
+  syncAlignButtons(true);
+});
 
 /* delete */
 function deleteSelected(){
@@ -1065,13 +1201,44 @@ function rt(cmd, val=null){
   document.execCommand(cmd, false, val);
   elEditBody.focus();
   scheduleEditSave();
+  syncAlignButtons(true);
 }
 bBold.onclick   = ()=> rt("bold");
 bItalic.onclick = ()=> rt("italic");
 bUnder.onclick  = ()=> rt("underline");
-bLeft.onclick   = ()=> rt("justifyLeft");
-bCenter.onclick = ()=> rt("justifyCenter");
-bRight.onclick  = ()=> rt("justifyRight");
+
+bLeft.onclick   = ()=> { rt("justifyLeft");   setAlignActive("left"); };
+bCenter.onclick = ()=> { rt("justifyCenter"); setAlignActive("center"); };
+bRight.onclick  = ()=> { rt("justifyRight");  setAlignActive("right"); };
+
+function setAlignActive(which){
+  bLeft.classList.toggle("active", which==="left");
+  bCenter.classList.toggle("active", which==="center");
+  bRight.classList.toggle("active", which==="right");
+}
+function syncAlignButtons(tryDetect=false){
+  // execCommand не всегда возвращает корректно — делаем мягко:
+  // пытаемся понять по ближайшему блоку/стилю, иначе оставляем как есть
+  if(!tryDetect) return;
+  try{
+    const sel = window.getSelection();
+    if(!sel || sel.rangeCount===0) return;
+    let node = sel.anchorNode;
+    if(!node) return;
+    if(node.nodeType===3) node = node.parentNode;
+    if(!node) return;
+    // ищем блок внутри editor
+    let cur = node;
+    while(cur && cur !== elEditBody && cur.parentNode){
+      cur = cur.parentNode;
+    }
+    const style = window.getComputedStyle(node);
+    const ta = style.textAlign;
+    if(ta.includes("right")) setAlignActive("right");
+    else if(ta.includes("center")) setAlignActive("center");
+    else setAlignActive("left");
+  } catch(e){}
+}
 
 /* ---------- Search ---------- */
 function openSearch(){
@@ -1156,10 +1323,10 @@ window.addEventListener("keydown",(e)=>{
 });
 
 /* ---------- Mode toggle ---------- */
-elToggle.onclick = ()=>{
+elToggle.addEventListener("click", ()=>{
   mode = (mode==="deep") ? "focus" : "deep";
   syncUITheme();
-};
+});
 
 /* ---------- Panel position: всегда справа от круга ---------- */
 function getObjScreenRadius(sel, zOverride=null){
@@ -1170,7 +1337,6 @@ function getObjScreenRadius(sel, zOverride=null){
   return rw * zr;
 }
 
-/* главное: приклеить справа, без налезания */
 function positionPanelRightOfSelected(opts={}){
   if(!selected) return;
   const obj = getSelectedObj();
@@ -1189,28 +1355,27 @@ function positionPanelRightOfSelected(opts={}){
   elPanel.style.bottom = "";
   elPanel.style.width = "360px";
 
-  // если пришёл предикт (где будет объект после полёта) — используем его
   const p = opts.predictedPos || worldToScreen(obj.x, obj.y);
   const zPred = (opts.predictedZ != null) ? opts.predictedZ : view.z;
 
   const rectW = 360;
-  const approxH = 290;
+  // если панель открыта — берём реальную высоту
+  const rectH = elPanel.classList.contains("open")
+    ? Math.max(220, Math.min(560, elPanel.getBoundingClientRect().height))
+    : 300;
 
-  // радиус + гарантированный зазор
   const r = getObjScreenRadius(selected, zPred);
   const gap = 22;
 
-  // всегда справа
   let left = p.x + r + gap;
-  let top  = p.y - approxH*0.42;
+  let top  = p.y - rectH/2; // центрируем по кругу
 
-  // если справа не помещается — ставим слева (на всякий)
   if(left + rectW > window.innerWidth - 12){
     left = p.x - r - gap - rectW;
   }
 
   left = clamp(left, 12, window.innerWidth - 12 - rectW);
-  top  = clamp(top, 12, window.innerHeight - 12 - approxH);
+  top  = clamp(top, 12, window.innerHeight - 12 - rectH);
 
   elPanel.style.left = Math.round(left) + "px";
   elPanel.style.top  = Math.round(top) + "px";
@@ -1242,74 +1407,141 @@ window.addEventListener("mousemove",(e)=>{
 });
 window.addEventListener("mouseup",()=> dragPanel.on=false);
 
-/* ---------- Pointer: pan / drag objects / click ---------- */
-let pointer = {
-  down:false,
-  mode:"none",
-  lastX:0,lastY:0,
-  downX:0,downY:0,
-  dragSel:null,
-  moved:false
-};
+/* ---------- Pointer / Touch (пан/пинч) + mouse pan ---------- */
+const pointers = new Map(); // pointerId -> {x,y}
+let gesture = { mode:"none", lastX:0, lastY:0, moved:false, dragSel:null, startDist:0, startZ:1, startMid:{x:0,y:0}, startWorldMid:{x:0,y:0} };
 const DRAG_THRESHOLD = 6;
 
-canvas.addEventListener("mousedown",(e)=>{
-  if(e.button !== 0) return;
+function startDragObject(sel){
+  gesture.mode = "dragObject";
+  gesture.dragSel = sel;
+}
+function startPan(){
+  gesture.mode = "pan";
+  gesture.dragSel = null;
+}
 
-  const sx=e.clientX, sy=e.clientY;
-  pointer.down=true;
-  pointer.lastX=sx; pointer.lastY=sy;
-  pointer.downX=sx; pointer.downY=sy;
-  pointer.moved=false;
+function onPointerDown(e){
+  // захват pointer
+  canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
 
-  const hit=hitTest(sx,sy);
+  // если два пальца — pinch
+  if(pointers.size === 2){
+    const pts = Array.from(pointers.values());
+    const dx = pts[0].x - pts[1].x;
+    const dy = pts[0].y - pts[1].y;
+    gesture.startDist = Math.hypot(dx,dy);
+    gesture.startZ = view.z;
+    gesture.startMid = { x: (pts[0].x + pts[1].x)/2, y: (pts[0].y + pts[1].y)/2 };
+    gesture.startWorldMid = screenToWorld(gesture.startMid.x, gesture.startMid.y);
+    gesture.mode = "pinch";
+    gesture.moved = true;
+    return;
+  }
+
+  // один указатель: мышь/палец
+  gesture.lastX = e.clientX;
+  gesture.lastY = e.clientY;
+  gesture.moved = false;
+
+  // Средняя кнопка мыши = панорама (как раньше)
+  if(e.pointerType === "mouse" && e.button === 1){
+    startPan();
+    return;
+  }
+
+  // Левая кнопка мыши / палец: выбрать/тащить или панить фон
+  if(e.pointerType === "mouse" && e.button !== 0) return;
+
+  const hit = hitTest(e.clientX, e.clientY);
   if(hit){
     selected = hit;
-    addPulse(selected); // вспышка выделения
-    pointer.mode="dragObject";
-    pointer.dragSel=hit;
+    addPulse(selected);
+    startDragObject(hit);
   }else{
-    selected=null;
-    pointer.mode="pan";
-    pointer.dragSel=null;
+    selected = null;
     closePanel();
+    startPan();
   }
-});
+}
 
-window.addEventListener("mousemove",(e)=>{
-  if(!pointer.down) return;
-  const sx=e.clientX, sy=e.clientY;
-  const dx=sx-pointer.lastX, dy=sy-pointer.lastY;
+function onPointerMove(e){
+  if(!pointers.has(e.pointerId)) return;
+  const prev = pointers.get(e.pointerId);
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
 
-  if(Math.abs(sx-pointer.downX) > DRAG_THRESHOLD || Math.abs(sy-pointer.downY) > DRAG_THRESHOLD){
-    pointer.moved=true;
+  if(gesture.mode === "pinch" && pointers.size === 2){
+    const pts = Array.from(pointers.values());
+    const dx = pts[0].x - pts[1].x;
+    const dy = pts[0].y - pts[1].y;
+    const dist = Math.max(1, Math.hypot(dx,dy));
+    const ratio = dist / Math.max(1, gesture.startDist);
+
+    const newZ = clamp(gesture.startZ * ratio, 0.05, 12.0);
+
+    // сохранить midpoint на месте
+    const mid = { x: (pts[0].x + pts[1].x)/2, y: (pts[0].y + pts[1].y)/2 };
+    const worldMid = gesture.startWorldMid;
+
+    view.z = newZ;
+    view.x = mid.x - worldMid.x * view.z;
+    view.y = mid.y - worldMid.y * view.z;
+
+    save();
+    return;
   }
 
-  pointer.lastX=sx; pointer.lastY=sy;
+  // обычный move
+  const dx = e.clientX - (gesture.lastX ?? e.clientX);
+  const dy = e.clientY - (gesture.lastY ?? e.clientY);
+  gesture.lastX = e.clientX;
+  gesture.lastY = e.clientY;
 
-  if(pointer.mode==="pan"){
+  if(Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD){
+    gesture.moved = true;
+  }
+
+  if(gesture.mode === "pan"){
     view.x += dx;
     view.y += dy;
     save();
     return;
   }
-  if(pointer.mode==="dragObject" && pointer.dragSel){
+
+  if(gesture.mode === "dragObject" && gesture.dragSel){
     const worldDelta={x: dx/view.z, y: dy/view.z};
-    if(pointer.dragSel.type==="core"){
-      const c=getCore(pointer.dragSel.id);
+    if(gesture.dragSel.type==="core"){
+      const c=getCore(gesture.dragSel.id);
       if(c){ c.x+=worldDelta.x; c.y+=worldDelta.y; save(); }
     }else{
-      const n=getNode(pointer.dragSel.id);
+      const n=getNode(gesture.dragSel.id);
       if(n){ n.x+=worldDelta.x; n.y+=worldDelta.y; save(); }
     }
   }
-});
+}
 
-window.addEventListener("mouseup",()=>{
-  pointer.down=false;
-  pointer.mode="none";
-  pointer.dragSel=null;
-});
+function onPointerUp(e){
+  pointers.delete(e.pointerId);
+
+  // если отпустили и остался один палец — сбрасываем pinch в pan
+  if(gesture.mode === "pinch" && pointers.size === 1){
+    gesture.mode = "pan";
+    const remain = Array.from(pointers.values())[0];
+    gesture.lastX = remain.x;
+    gesture.lastY = remain.y;
+  }
+  if(pointers.size === 0){
+    gesture.mode = "none";
+    gesture.dragSel = null;
+  }
+}
+
+canvas.addEventListener("pointerdown", onPointerDown, {passive:false});
+canvas.addEventListener("pointermove", onPointerMove, {passive:false});
+canvas.addEventListener("pointerup", onPointerUp, {passive:false});
+canvas.addEventListener("pointercancel", onPointerUp, {passive:false});
+canvas.addEventListener("pointerleave", onPointerUp, {passive:false});
 
 /* zoom wheel */
 canvas.addEventListener("wheel",(e)=>{
@@ -1331,6 +1563,7 @@ canvas.addEventListener("wheel",(e)=>{
   const zoomFactor=Math.exp(-e.deltaY*0.0012);
   view.z = clamp(view.z*zoomFactor, 0.05, 12.0);
 
+  // сохранить точку под курсором
   const after=screenToWorld(sx,sy);
   view.x += (after.x-before.x)*view.z;
   view.y += (after.y-before.y)*view.z;
@@ -1338,7 +1571,7 @@ canvas.addEventListener("wheel",(e)=>{
   save();
 },{passive:false});
 
-/* dblclick = создание (по пустоте/ядру/мысли) */
+/* dblclick = создание */
 canvas.addEventListener("dblclick",(e)=>{
   const sx=e.clientX, sy=e.clientY;
   const hit=hitTest(sx,sy);
@@ -1354,7 +1587,6 @@ canvas.addEventListener("dblclick",(e)=>{
 
   if(hit.type==="core"){
     createNode("core", hit.id, hit.id);
-    // создание -> подлёт+редактор к новой мысли
     focusToSelected(true);
     return;
   }
@@ -1415,7 +1647,7 @@ function focusToSelected(openEditor=true){
 
   const targetZ = clamp(selected.type==="node" ? 8.5 : 6.0, 0.05, 12.0);
 
-  // объект после полёта окажется тут
+  // объект летит влево, панель справа
   const targetScreenX = Math.floor(window.innerWidth * 0.30);
   const targetScreenY = Math.floor(window.innerHeight * 0.52);
 
@@ -1425,7 +1657,6 @@ function focusToSelected(openEditor=true){
   const start = { x:view.x, y:view.y, z:view.z };
   const end   = { x:targetX, y:targetY, z:targetZ };
 
-  // заранее ставим панель справа от предсказанной позиции объекта
   if(openEditor){
     const predictedPos = { x: targetScreenX, y: targetScreenY };
     positionPanelRightOfSelected({predictedPos, predictedZ: targetZ});
@@ -1446,8 +1677,6 @@ function focusToSelected(openEditor=true){
     else{
       save();
       if(openEditor){
-        // финальная фиксация панели (на всякий)
-        positionPanelRightOfSelected();
         openPanel();
       }
     }
@@ -1468,27 +1697,25 @@ function changeSelectedRadius(delta){
   if(elPanel.classList.contains("open")) positionPanelRightOfSelected();
 }
 
-/* ---------- Search overlay keys ---------- */
-window.addEventListener("keydown",(e)=>{
-  if(e.key==="Escape"){
-    if(elSearchOverlay.classList.contains("open")) closeSearch();
+/* ---------- Click to open panel (без мусора после drag) ---------- */
+canvas.addEventListener("click",(e)=>{
+  // если был drag — не открываем панель
+  if(gesture.moved) return;
+
+  // только ЛКМ / tap
+  if(e.pointerType === "mouse" && e.button !== 0) return;
+
+  const hit = hitTest(e.clientX, e.clientY);
+  if(hit){
+    selected = hit;
+    addPulse(selected);
+    positionPanelRightOfSelected();
+    openPanel();
+  }else{
+    selected = null;
+    closePanel();
   }
 });
-
-/* ---------- Mode toggle ---------- */
-elToggle.addEventListener("click", ()=>{
-  mode = (mode==="deep") ? "focus" : "deep";
-  syncUITheme();
-});
-
-/* ---------- Search overlay ---------- */
-function openSearch(){
-  elSearchOverlay.classList.add("open");
-  elSearchInput.value = "";
-  renderResults([]);
-  elSearchInput.focus();
-}
-function closeSearch(){ elSearchOverlay.classList.remove("open"); }
 
 /* ---------- Frame ---------- */
 let T=0;
