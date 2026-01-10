@@ -33,10 +33,14 @@
       background: #05070d;
       overflow: hidden;
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      overscroll-behavior: none;
+      touch-action: none; /* важно для iOS: pinch/pan мы обрабатываем сами */
     }
     canvas {
       display:block;
-      touch-action: none; /* важно для iPad/телефона: панорама/пинч без скролла страницы */
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
     }
 
     .mode-toggle {
@@ -94,7 +98,7 @@
       position: fixed;
       left: 14px;
       bottom: 64px;
-      width: 380px;
+      width: 360px;
       max-width: calc(100vw - 28px);
       border-radius: 16px;
       backdrop-filter: blur(10px);
@@ -136,13 +140,6 @@
     }
     .help-pop.light .kbd{ border-color: rgba(0,0,0,.18); }
 
-    .help-actions{
-      display:flex;
-      gap:8px;
-      margin-top: 10px;
-      flex-wrap: wrap;
-    }
-
     /* Панель редактирования */
     .panel{
       position: fixed;
@@ -170,6 +167,9 @@
 
       max-height: min(560px, 78vh);
       overflow: hidden;
+
+      /* запрет прокрутки страницы при resize */
+      touch-action: none;
     }
     .panel.open{
       opacity: 1;
@@ -255,7 +255,7 @@
       background: rgba(0,0,0,0.03);
     }
 
-    /* Toolbar */
+    /* Toolbar — иконки как в редакторах (линии, а не стрелки) */
     .rtbar{
       display:flex;
       gap: 8px;
@@ -275,31 +275,17 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      transition: transform .08s ease, background .12s ease, border-color .12s ease, opacity .12s ease;
+      transition: transform .08s ease, background .12s ease, border-color .12s ease;
       font-size: 14px;
       padding: 0;
     }
-    .rtbtn svg{
-      width: 18px;
-      height: 18px;
-      display:block;
-      opacity: .92;
-    }
     .rtbtn:hover{ background: rgba(255,255,255,0.08); }
     .rtbtn:active{ transform: translateY(1px); }
-    .rtbtn.active{
-      background: rgba(255,255,255,0.12);
-      border-color: rgba(255,255,255,0.22);
-    }
     .panel.light .rtbtn{
       border-color: rgba(0,0,0,0.12);
       background: rgba(0,0,0,0.03);
     }
     .panel.light .rtbtn:hover{ background: rgba(0,0,0,0.05); }
-    .panel.light .rtbtn.active{
-      background: rgba(0,0,0,0.08);
-      border-color: rgba(0,0,0,0.18);
-    }
 
     .rtsep{
       width: 1px;
@@ -325,8 +311,9 @@
       max-height: 320px;
       overflow: auto;
 
-      /* чтобы текстовый ввод не тянул всю страницу */
-      overscroll-behavior: contain;
+      /* чтобы ссылки выглядели как ссылки */
+      line-height: 1.35;
+      word-break: break-word;
     }
     .panel.light .editor{
       border-color: rgba(0,0,0,0.14);
@@ -335,6 +322,46 @@
     .editor:empty:before{
       content: attr(data-placeholder);
       opacity: .45;
+    }
+    .editor a{
+      color: inherit;
+      text-decoration: underline;
+      opacity: .95;
+    }
+
+    /* Ручка resize панели (красиво, без системного скролла страницы) */
+    .panel-resize{
+      position:absolute;
+      right: 10px;
+      bottom: 10px;
+      width: 18px;
+      height: 18px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      cursor: nwse-resize;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      user-select:none;
+      touch-action: none;
+      opacity: .9;
+    }
+    .panel.light .panel-resize{
+      border-color: rgba(0,0,0,0.12);
+      background: rgba(0,0,0,0.03);
+    }
+    .panel-resize:before{
+      content:"";
+      width: 10px;
+      height: 10px;
+      border-right: 2px solid rgba(255,255,255,0.45);
+      border-bottom: 2px solid rgba(255,255,255,0.45);
+      transform: translate(1px,1px);
+    }
+    .panel.light .panel-resize:before{
+      border-right-color: rgba(0,0,0,0.35);
+      border-bottom-color: rgba(0,0,0,0.35);
     }
 
     /* Поиск */
@@ -351,7 +378,7 @@
     .searchOverlay.open{ display:flex; }
 
     .searchBox{
-      width: min(380px, calc(100vw - 24px));
+      width: min(360px, calc(100vw - 24px)); /* уже */
       border-radius: 16px;
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255,255,255,0.16);
@@ -375,7 +402,7 @@
       box-sizing: border-box;
       font-family: inherit;
     }
-    .searchInput::placeholder{ opacity: .42; }
+    .searchInput::placeholder{ opacity: .28; } /* бледнее */
 
     .results{
       max-height: 38vh;
@@ -413,23 +440,16 @@
 <div class="help-pop" id="helpPop">
   <div class="help-title">Коротко</div>
   <ul class="help-list">
-    <li>Выделить: ЛКМ</li>
-    <li>Создать ядро: двойной ЛКМ по пустоте</li>
-    <li>Создать мысль: двойной ЛКМ по ядру</li>
-    <li>Создать дочернюю мысль: двойной ЛКМ по мысли</li>
-    <li>Подлёт + редактирование: ПКМ по объекту</li>
-    <li>Создать мысль “быстро”: двойной ПКМ по объекту</li>
+    <li>Выделить: ЛКМ / tap</li>
+    <li>Панорама: тащи фон (1 палец) • 2 пальца — панорама</li>
+    <li>Зум: колесо • pinch</li>
+    <li>Создать ядро: двойной tap/ЛКМ по пустоте</li>
+    <li>Создать дочернюю мысль: двойной tap/ЛКМ по идее</li>
+    <li>Фокус + редактирование: ПКМ по объекту • long-press на iPad</li>
     <li>Удалить выбранное: <span class="kbd">Del</span> / <span class="kbd">Backspace</span></li>
-    <li>Размер важности: <span class="kbd">[</span> меньше • <span class="kbd">]</span> больше • <span class="kbd">Alt</span>+колесо</li>
+    <li>Свернуть/развернуть ветку: <span class="kbd">C</span> (в фокусе тоже)</li>
     <li>Поиск: <span class="kbd">Ctrl</span>+<span class="kbd">K</span></li>
-    <li>Панорама: тащи фон • Средняя кнопка: тянуть • Зум: колесо • На телефоне: 1 палец пан, 2 пальца пинч</li>
   </ul>
-
-  <div class="help-actions">
-    <button class="btn" id="btnExport" type="button" title="Скачать JSON">Экспорт</button>
-    <button class="btn" id="btnImport" type="button" title="Загрузить JSON">Импорт</button>
-    <input id="importFile" type="file" accept="application/json" style="display:none;">
-  </div>
 </div>
 
 <div class="panel" id="panel">
@@ -439,6 +459,7 @@
       <div class="muted" id="panelMeta" style="margin-top:4px;"></div>
     </div>
     <div style="display:flex; gap:8px;">
+      <button class="btn icon-btn" id="btnCollapse" title="Свернуть / развернуть">▾</button>
       <button class="btn icon-btn" id="btnDelete" title="Удалить">🗑</button>
       <button class="btn icon-btn" id="panelClose" title="Закрыть">✕</button>
     </div>
@@ -458,39 +479,42 @@
 
     <div class="rtsep"></div>
 
-    <!-- Word-подобные иконки выравнивания -->
-    <button class="rtbtn" id="bLeft"   type="button" title="Влево" aria-label="Align Left">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <path d="M4 6h14"/>
-        <path d="M4 10h10"/>
-        <path d="M4 14h14"/>
-        <path d="M4 18h10"/>
+    <!-- стандартные пиктограммы линиями -->
+    <button class="rtbtn" id="bLeft"   type="button" title="Влево">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+        <rect x="3" y="4" width="12" height="2" rx="1" fill="currentColor" opacity=".85"/>
+        <rect x="3" y="8" width="8"  height="2" rx="1" fill="currentColor" opacity=".85"/>
+        <rect x="3" y="12" width="11" height="2" rx="1" fill="currentColor" opacity=".85"/>
       </svg>
     </button>
-    <button class="rtbtn" id="bCenter" type="button" title="Центр" aria-label="Align Center">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <path d="M5 6h14"/>
-        <path d="M7 10h10"/>
-        <path d="M5 14h14"/>
-        <path d="M7 18h10"/>
+    <button class="rtbtn" id="bCenter" type="button" title="Центр">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+        <rect x="3" y="4" width="12" height="2" rx="1" fill="currentColor" opacity=".85"/>
+        <rect x="5" y="8" width="8"  height="2" rx="1" fill="currentColor" opacity=".85"/>
+        <rect x="4" y="12" width="10" height="2" rx="1" fill="currentColor" opacity=".85"/>
       </svg>
     </button>
-    <button class="rtbtn" id="bRight"  type="button" title="Вправо" aria-label="Align Right">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <path d="M6 6h14"/>
-        <path d="M10 10h10"/>
-        <path d="M6 14h14"/>
-        <path d="M10 18h10"/>
+    <button class="rtbtn" id="bRight"  type="button" title="Вправо">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+        <rect x="3" y="4" width="12" height="2" rx="1" fill="currentColor" opacity=".85"/>
+        <rect x="7" y="8" width="8"  height="2" rx="1" fill="currentColor" opacity=".85"/>
+        <rect x="4" y="12" width="11" height="2" rx="1" fill="currentColor" opacity=".85"/>
       </svg>
     </button>
+
+    <div class="rtsep"></div>
+
+    <button class="rtbtn" id="bLink" type="button" title="Вставить ссылку">🔗</button>
   </div>
 
   <div class="editor" id="editBody" contenteditable="true" data-placeholder="Смысл, формулировка, пример…"></div>
+
+  <div class="panel-resize" id="panelResize" title="Размер окна"></div>
 </div>
 
 <div class="searchOverlay" id="searchOverlay">
   <div class="searchBox" id="searchBox">
-    <input class="searchInput" id="searchInput" placeholder="Найти ядро/мысль…  (Esc)"/>
+    <input class="searchInput" id="searchInput" placeholder="Найти ядро/мысль… (Esc)"/>
     <div class="results" id="results"></div>
   </div>
 </div>
@@ -498,27 +522,27 @@
 <script>
 /* =========================================================
    Поля и Потоки v0.8
-   FIX/UPD:
-   - Нормальные иконки выравнивания (как Word)
-   - Пинч-зум + панорама на iPad/телефон (Pointer Events)
-   - Панорама средней кнопкой мыши (MMB)
-   - Свечение как "дымка", без контурного кольца и без скачков на зуме
-   - Панель справа от объекта и центрирована по нему (реальная высота)
-   - Темный фон контрастнее
-   - Перенос названия: запрет "одна буква строкой" (простое исправление)
-   - Экспорт/Импорт JSON
+   Внесено по твоим правкам:
+   - iPad/Safari: pinch zoom, 2-finger pan, double tap create, long-press focus, возврат из других приложений
+   - ЛКМ НЕ открывает редактор (только выделение/перетаскивание)
+   - ПКМ (desktop) / long-press (touch) = фокус + редактор
+   - Сильнее диапазон зума (очень близко/очень далеко)
+   - Перенос текста: только по словам, без переносов по 1 букве; 2 строки + …; ширина адаптивнее
+   - Свечение: “дымка” + хаотичное дыхание в экранных координатах (не ломается от зума)
+   - Дочерние идеи: одинаковая контрастность
+   - Collapse/expand ветки (клавиша C + кнопка)
+   - Ссылки: вставка ссылок + ctrl/cmd-клик по ссылке открывает
+   - Resize панели (ручка), без появления системного скролла страницы
+   - Панорама средней кнопкой мыши (MMB) + обычная перетаскиванием фона
 ========================================================= */
 
 const canvas = document.getElementById("field");
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d", { alpha: false });
 
 const elToggle = document.getElementById("modeToggle");
 
 const elHelpBtn = document.getElementById("helpBtn");
 const elHelpPop = document.getElementById("helpPop");
-const elBtnExport = document.getElementById("btnExport");
-const elBtnImport = document.getElementById("btnImport");
-const elImportFile = document.getElementById("importFile");
 
 const elPanel = document.getElementById("panel");
 const elPanelClose = document.getElementById("panelClose");
@@ -526,7 +550,9 @@ const elPanelMeta = document.getElementById("panelMeta");
 const elEditTitle = document.getElementById("editTitle");
 const elEditBody  = document.getElementById("editBody");
 const elBtnDelete = document.getElementById("btnDelete");
+const elBtnCollapse = document.getElementById("btnCollapse");
 const elPanelDrag = document.getElementById("panelDrag");
+const elPanelResize = document.getElementById("panelResize");
 
 const elSearchOverlay = document.getElementById("searchOverlay");
 const elSearchBox = document.getElementById("searchBox");
@@ -539,6 +565,7 @@ const bUnder  = document.getElementById("bUnder");
 const bLeft   = document.getElementById("bLeft");
 const bCenter = document.getElementById("bCenter");
 const bRight  = document.getElementById("bRight");
+const bLink   = document.getElementById("bLink");
 
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function rand(min,max){ return min + Math.random()*(max-min); }
@@ -553,13 +580,19 @@ let view = { x: 0, y: 0, z: 1.0 };
 /* ---------- DPI ---------- */
 let w=0,h=0,cx=0,cy=0,DPR=1;
 function resize(){
+  // iOS любит дергать viewport — берём актуальные размеры
+  const vw = Math.max(1, Math.floor(window.innerWidth));
+  const vh = Math.max(1, Math.floor(window.innerHeight));
+
   DPR = clamp(window.devicePixelRatio||1, 1, 2);
-  w = Math.floor(window.innerWidth);
-  h = Math.floor(window.innerHeight);
+  w = vw;
+  h = vh;
+
   canvas.width  = Math.floor(w*DPR);
   canvas.height = Math.floor(h*DPR);
   canvas.style.width = w+"px";
   canvas.style.height = h+"px";
+
   ctx.setTransform(DPR,0,0,DPR,0,0);
   cx = w/2; cy = h/2;
 
@@ -569,6 +602,22 @@ function resize(){
   if(elPanel.classList.contains("open")) positionPanelRightOfSelected();
 }
 window.addEventListener("resize", resize);
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize", ()=>{ resize(); });
+}
+
+/* iOS/Safari: возвращение из других приложений */
+function hardReflow(){
+  // сброс активных pointer-состояний
+  pointers.clear();
+  gesture.mode = "none";
+  gesture.active = false;
+  longPressCancel();
+  resize();
+}
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) hardReflow(); });
+window.addEventListener("pageshow", ()=> hardReflow());
+window.addEventListener("focus", ()=> hardReflow());
 
 /* ---------- Данные ---------- */
 const STORAGE_KEY = "fields_flows_v08";
@@ -588,11 +637,47 @@ function ensureGlow(id){
   return s;
 }
 
+/* ---------- Авто-размеры (приоритеты сами проявляются) ---------- */
+function textLen(obj){
+  const t = (obj.title||"").trim();
+  const b = stripHtml(obj.bodyHtml||"");
+  return (t.length + b.length);
+}
+function childrenCount(type,id){
+  if(type==="core") return state.nodes.filter(n=>n.coreId===id && n.parentType==="core" && n.parentId===id).length
+                         + state.nodes.filter(n=>n.coreId===id && n.parentType!=="core").length;
+  // для node — прямые дети
+  return state.nodes.filter(n=>n.parentType==="node" && n.parentId===id).length;
+}
+function computeRadiusFor(obj, type){
+  const base = (type==="core") ? 22 : 10;
+  const kids = childrenCount(type, obj.id);
+  const len  = textLen(obj);
+
+  // гладко, без “раздува”
+  const r = base
+          + 2.8 * Math.sqrt(Math.max(0,kids))
+          + 1.6 * Math.log(Math.max(1, len) + 1);
+
+  const minR = (type==="core") ? 18 : 8;
+  const maxR = (type==="core") ? 74 : 34;
+  return clamp(r, minR, maxR);
+}
+function recomputeAutoRadii(){
+  for(const c of state.cores){
+    c.r = computeRadiusFor(c,"core");
+  }
+  for(const n of state.nodes){
+    n.r = computeRadiusFor(n,"node");
+  }
+}
+
+/* ---------- Defaults ---------- */
 function defaultState(){
-  const c1 = {id: uid("core"), title:"Основы",   bodyHtml:"", x:-240, y:-80,  r:28, hue:210};
-  const c2 = {id: uid("core"), title:"Практика", bodyHtml:"", x: 180, y:-120, r:26, hue:220};
-  const c3 = {id: uid("core"), title:"Идеи",     bodyHtml:"", x: 120, y: 140, r:30, hue:205};
-  const c4 = {id: uid("core"), title:"Личное",   bodyHtml:"", x:-160, y: 160, r:24, hue:230};
+  const c1 = {id: uid("core"), title:"Основы",   bodyHtml:"", x:-240, y:-80,  r:28, hue:210, collapsed:false};
+  const c2 = {id: uid("core"), title:"Практика", bodyHtml:"", x: 180, y:-120, r:26, hue:220, collapsed:false};
+  const c3 = {id: uid("core"), title:"Идеи",     bodyHtml:"", x: 120, y: 140, r:30, hue:205, collapsed:false};
+  const c4 = {id: uid("core"), title:"Личное",   bodyHtml:"", x:-160, y: 160, r:24, hue:230, collapsed:false};
   return { cores:[c1,c2,c3,c4], nodes:[] };
 }
 
@@ -602,6 +687,7 @@ function load(){
     if(!raw){
       state = defaultState();
       view.x = cx; view.y = cy; view.z = 1.0;
+      recomputeAutoRadii();
       save();
       return;
     }
@@ -616,17 +702,21 @@ function load(){
     view.x=cx; view.y=cy; view.z=1.0;
   }
 
-  // миграция + нормализация
+  // миграция
   for(const c of state.cores){
     if(c.body && !c.bodyHtml){ c.bodyHtml = escapeHtml(c.body); delete c.body; }
     if(!c.bodyHtml) c.bodyHtml = "";
+    if(typeof c.collapsed !== "boolean") c.collapsed = false;
     ensureGlow(c.id);
   }
   for(const n of state.nodes){
     if(n.body && !n.bodyHtml){ n.bodyHtml = escapeHtml(n.body); delete n.body; }
     if(!n.bodyHtml) n.bodyHtml = "";
+    if(typeof n.collapsed !== "boolean") n.collapsed = false;
     ensureGlow(n.id);
   }
+
+  recomputeAutoRadii();
 }
 function save(){
   state._view = view;
@@ -651,74 +741,29 @@ function syncUITheme(){
 elHelpBtn.addEventListener("click", ()=>{
   elHelpPop.classList.toggle("open");
 });
-window.addEventListener("mousedown",(e)=>{
+window.addEventListener("pointerdown",(e)=>{
   if(elHelpPop.classList.contains("open")){
     const inPop = elHelpPop.contains(e.target);
     const inBtn = elHelpBtn.contains(e.target);
     if(!inPop && !inBtn) elHelpPop.classList.remove("open");
   }
-});
-
-/* ---------- Export/Import ---------- */
-function download(filename, text){
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([text], {type:"application/json"}));
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
-}
-elBtnExport.addEventListener("click", ()=>{
-  const payload = JSON.stringify({ _v: "v08", state, _exportedAt: new Date().toISOString() }, null, 2);
-  download("fields_flows.json", payload);
-});
-elBtnImport.addEventListener("click", ()=> elImportFile.click());
-elImportFile.addEventListener("change", async ()=>{
-  const f = elImportFile.files && elImportFile.files[0];
-  if(!f) return;
-  try{
-    const txt = await f.text();
-    const data = JSON.parse(txt);
-    if(data && data.state && Array.isArray(data.state.cores) && Array.isArray(data.state.nodes)){
-      state = data.state;
-      if(state._view) view = state._view;
-      // ensure glow seeds
-      for(const c of state.cores) ensureGlow(c.id);
-      for(const n of state.nodes) ensureGlow(n.id);
-      save();
-      selected = null;
-      closePanel();
-    } else if(data && Array.isArray(data.cores) && Array.isArray(data.nodes)){
-      // если кто-то импортирует чисто state
-      state = data;
-      for(const c of state.cores) ensureGlow(c.id);
-      for(const n of state.nodes) ensureGlow(n.id);
-      save();
-      selected = null;
-      closePanel();
-    }
-  } catch(err){
-    // тихо игнорируем (можно добавить alert по желанию)
-  } finally {
-    elImportFile.value = "";
-  }
-});
+},{passive:true});
 
 /* ---------- Particles ---------- */
 let particlesFar=[], particlesNear=[];
 function makeParticle(layer){
   const isFar = layer==="far";
-  const baseSize = isFar ? rand(0.4,1.4) : rand(0.8,2.4);
+  const baseSize = isFar ? rand(0.4,1.4) : rand(0.8,2.2);
   return {
     x: rand(0,w), y: rand(0,h),
-    vx: isFar ? rand(-0.055,0.055) : rand(-0.12,0.12),
-    vy: isFar ? rand(-0.035,0.035) : rand(-0.09,0.09),
+    vx: isFar ? rand(-0.055,0.055) : rand(-0.11,0.11),
+    vy: isFar ? rand(-0.035,0.035) : rand(-0.085,0.085),
     z: rand(0.2,1.0),
-    vz: isFar ? rand(-0.00055,0.00055) : rand(-0.0011,0.0011),
+    vz: isFar ? rand(-0.00055,0.00055) : rand(-0.0010,0.0010),
     tw: rand(0,Math.PI*2),
-    twSpeed: isFar ? rand(0.010,0.022) : rand(0.014,0.030),
+    twSpeed: isFar ? rand(0.010,0.022) : rand(0.014,0.028),
     size: baseSize,
-    baseAlpha: isFar ? rand(0.10,0.26) : rand(0.07,0.18),
+    baseAlpha: isFar ? rand(0.10,0.24) : rand(0.08,0.18),
   };
 }
 function initParticles(){
@@ -729,36 +774,34 @@ function initParticles(){
 }
 function drawBackground(t){
   const breathe = (Math.sin(t*0.01)+1)*0.5;
-
-  // Сделали темную тему контрастнее/глубже
   const grd = ctx.createRadialGradient(
-    cx + (mode==="deep" ? (breathe-0.5)*34 : (breathe-0.5)*14),
-    cy + (mode==="deep" ? (0.5-breathe)*26 : (0.5-breathe)*10),
-    90, cx, cy, Math.max(w,h)
+    cx + (mode==="deep" ? (breathe-0.5)*40 : (breathe-0.5)*18),
+    cy + (mode==="deep" ? (0.5-breathe)*30 : (0.5-breathe)*12),
+    120, cx, cy, Math.max(w,h)
   );
-
   if(mode==="deep"){
-    grd.addColorStop(0, "#0f1736");
-    grd.addColorStop(0.45,"#05071a");
+    // контрастнее/сочнее
+    grd.addColorStop(0, "#0d1430");
+    grd.addColorStop(0.55,"#040716");
     grd.addColorStop(1, "#01020a");
   }else{
-    grd.addColorStop(0, "#fbfcff");
+    grd.addColorStop(0, "#f8faff");
     grd.addColorStop(0.6,"#eef2ff");
-    grd.addColorStop(1, "#dfe6ff");
+    grd.addColorStop(1, "#e2e8ff");
   }
   ctx.fillStyle = grd;
   ctx.fillRect(0,0,w,h);
 
-  ctx.fillStyle = (mode==="deep") ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.06)";
+  ctx.fillStyle = (mode==="deep") ? "rgba(10,14,28,0.06)" : "rgba(255,255,255,0.10)";
   ctx.fillRect(0,0,w,h);
 }
 function updateAndDrawParticles(list, layer, t){
   const isFar = layer==="far";
-  const speedMul = (mode==="deep") ? 1.0 : 1.05;
+  const speedMul = (mode==="deep") ? 1.0 : 1.02;
 
   let r,g,b;
-  if(mode==="deep"){ r=175; g=215; b=255; }
-  else { r=130; g=155; b=95; } // мягкая "дневная" пыльца (меньше “грязи”)
+  if(mode==="deep"){ r=170; g=210; b=255; }
+  else { r=130; g=160; b=110; } // светлая тема — “пыльца”, мягче, меньше грязи
 
   for(const p of list){
     p.x += p.vx * speedMul * (0.6+p.z);
@@ -773,8 +816,8 @@ function updateAndDrawParticles(list, layer, t){
     p.tw += p.twSpeed;
     const twinkle = 0.62 + 0.38*Math.sin(p.tw);
 
-    const alphaBoost = (mode==="deep") ? 1.0 : 0.78;
-    const a = Math.min(0.48, (p.baseAlpha*alphaBoost)*twinkle);
+    const alphaBoost = (mode==="deep") ? 1.0 : 0.42; // светлая тема — менее навязчиво
+    const a = Math.min(0.45, (p.baseAlpha*alphaBoost)*twinkle);
     const s = p.size*(0.75+p.z*0.85);
 
     ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
@@ -782,7 +825,7 @@ function updateAndDrawParticles(list, layer, t){
     ctx.arc(p.x,p.y,s,0,Math.PI*2);
     ctx.fill();
 
-    const glowA = (mode==="deep") ? (a*0.10) : (a*0.06);
+    const glowA = (mode==="deep") ? (a*0.08) : (a*0.04);
     ctx.fillStyle = `rgba(${r},${g},${b},${glowA})`;
     ctx.beginPath();
     ctx.arc(p.x,p.y,s*3.0,0,Math.PI*2);
@@ -794,12 +837,41 @@ function updateAndDrawParticles(list, layer, t){
 function getCore(id){ return state.cores.find(c=>c.id===id); }
 function getNode(id){ return state.nodes.find(n=>n.id===id); }
 
+/* ---------- Collapsed helpers ---------- */
+function isHiddenByCollapseNode(node){
+  // если любой предок collapsed — скрываем
+  let cur = node;
+  while(true){
+    if(cur.parentType==="core"){
+      const c = getCore(cur.parentId);
+      if(!c) return false;
+      if(c.collapsed) return true;
+      return false;
+    }else{
+      const p = getNode(cur.parentId);
+      if(!p) return false;
+      if(p.collapsed) return true;
+      cur = p;
+    }
+  }
+}
+function isHiddenByCollapseCore(core){
+  // ядро всегда видно
+  return false;
+}
+
 function getEdges(){
   const edges = [];
   for(const n of state.nodes){
+    if(isHiddenByCollapseNode(n)) continue;
+
     if(n.parentType==="core"){
+      const c = getCore(n.parentId);
+      if(c && c.collapsed) continue;
       edges.push({aType:"core", aId:n.parentId, bType:"node", bId:n.id});
     }else{
+      const p = getNode(n.parentId);
+      if(p && p.collapsed) continue;
       edges.push({aType:"node", aId:n.parentId, bType:"node", bId:n.id});
     }
   }
@@ -819,19 +891,33 @@ function stripHtml(html){
   return (tmp.textContent || tmp.innerText || "").trim();
 }
 
-/* перенос на 2 строки + троеточие + анти-однобуквенная строка */
+/* перенос на 2 строки + … , только по словам (без 1-буквенных переносов) */
 function drawWrappedLabel(text, x, y, maxWidth, lineHeight, maxLines){
   text = (text || "").trim();
   if(!text) return;
 
-  const hasSpaces = /\s/.test(text);
-  const words = hasSpaces ? text.split(/\s+/) : text.split("");
+  const words = text.split(/\s+/).filter(Boolean);
+
+  // одиночное слово: НЕ переносим по буквам — только укорачиваем
+  if(words.length === 1){
+    let s = words[0];
+    if(ctx.measureText(s).width <= maxWidth){
+      ctx.fillText(s, x, y);
+      return;
+    }
+    const ell = "…";
+    while(s.length > 0 && ctx.measureText(s + ell).width > maxWidth){
+      s = s.slice(0, -1);
+    }
+    ctx.fillText((s ? s + ell : ell), x, y);
+    return;
+  }
 
   const lines = [];
   let line = "";
 
   for(const w of words){
-    const test = line ? (line + (hasSpaces ? " " : "") + w) : w;
+    const test = line ? (line + " " + w) : w;
     if(ctx.measureText(test).width <= maxWidth){
       line = test;
     }else{
@@ -842,31 +928,15 @@ function drawWrappedLabel(text, x, y, maxWidth, lineHeight, maxLines){
   }
   if(lines.length < maxLines && line) lines.push(line);
 
-  // анти-однобуквенная строка (простая правка)
-  if(lines.length >= 2){
-    const last = lines[lines.length - 1].trim();
-    if(last.length === 1){
-      const prev = lines[lines.length - 2].trim();
-      const merged = (prev + " " + last).trim();
-      if(ctx.measureText(merged).width <= maxWidth){
-        lines[lines.length - 2] = merged;
-        lines.pop();
-      }
+  // ellipsis on overflow
+  const joined = lines.join(" ").replace(/\s+/g," ").trim();
+  if(joined.length < text.length && lines.length){
+    const ell = "…";
+    let last = lines[lines.length-1];
+    while(ctx.measureText(last + ell).width > maxWidth && last.length>0){
+      last = last.slice(0,-1);
     }
-  }
-
-  // если переполнение — троеточие
-  if(lines.length > maxLines) lines.length = maxLines;
-  if(lines.length === maxLines){
-    const combined = lines.join(" ");
-    if(combined.length < text.length){
-      let last = lines[maxLines-1];
-      const ell = "…";
-      while(ctx.measureText(last + ell).width > maxWidth && last.length>0){
-        last = last.slice(0, -1);
-      }
-      lines[maxLines-1] = (last.length ? last + ell : ell);
-    }
+    lines[lines.length-1] = (last ? last + ell : ell);
   }
 
   for(let i=0;i<lines.length;i++){
@@ -879,7 +949,7 @@ function hsl(h,s,l,a=1){ return `hsla(${h},${s}%,${l}%,${a})`; }
 
 function drawEdges(t){
   const edges = getEdges();
-  const baseLine = (mode==="deep") ? "rgba(145,195,255,0.22)" : "rgba(55,70,120,0.20)";
+  const baseLine = (mode==="deep") ? "rgba(140,180,255,0.22)" : "rgba(55,70,120,0.18)";
   ctx.lineCap = "round";
 
   for(const E of edges){
@@ -891,7 +961,7 @@ function drawEdges(t){
     const Bs = worldToScreen(B.x, B.y);
 
     const seed = ((A.x*0.013 + A.y*0.017 + B.x*0.019 + B.y*0.011) % 1000);
-    const strong = (E.aType==="node") ? 1.45 : 1.0;
+    const strong = (E.aType==="node") ? 1.35 : 1.0;
 
     const sway =
       strong * (9 * Math.sin(t*0.018 + seed) +
@@ -899,7 +969,7 @@ function drawEdges(t){
                4 * Math.sin(t*0.011 + seed*1.3));
 
     ctx.strokeStyle = baseLine;
-    ctx.lineWidth = (E.aType==="node") ? 1.35 : 1.55;
+    ctx.lineWidth = (E.aType==="node") ? 1.25 : 1.45;
 
     ctx.beginPath();
     ctx.moveTo(As.x, As.y);
@@ -924,8 +994,8 @@ function drawPulses(now){
     const r = (obj.r ?? (p.type==="core"?26:11)) * view.z;
     const k = (now - p.t0) / life; // 0..1
 
-    const ringR = r + 10 + k * 26;       // фикс в px (не зависит от zoom)
-    const alpha = (1-k) * 0.30;
+    const ringR = r + 12 + k * 26;
+    const alpha = (1-k) * 0.33;
 
     ctx.strokeStyle = (mode==="deep") ? `rgba(190,230,255,${alpha})` : `rgba(55,90,130,${alpha*0.85})`;
     ctx.lineWidth = 2.0;
@@ -935,36 +1005,19 @@ function drawPulses(now){
   }
 }
 
-/* дымка-свечение (хаотичная, но без "контурного кольца") */
-function drawSmokyGlow(posX, posY, r, id, hue, t, isSel){
+/* Свечение: “дымка” в экранных координатах (НЕ зависит от зума) */
+function glowProfile(id, t){
   const s = ensureGlow(id);
-
-  // хаос размера, но в пикселях (чтобы при зуме не "взрывалось")
-  const a = Math.sin(t*0.018 + s.a);
-  const b = Math.sin(t*0.011 + s.b);
-  const c = Math.sin(t*0.007 + s.c);
+  const a = Math.sin(t*0.020 + s.a);
+  const b = Math.sin(t*0.013 + s.b);
+  const c = Math.sin(t*0.009 + s.c);
   const osc = (a*0.55 + b*0.30 + c*0.20); // -..+
-  const pad = 10;                         // отступ от круга
-  const thicknessBase = (isSel ? 34 : 28);
-  const thickness = thicknessBase + osc*8;
-
-  const inner = r + pad;
-  const outer = inner + thickness;
-
-  const alpha = (mode==="deep") ? 0.22 : 0.16;
-
-  const g = ctx.createRadialGradient(posX, posY, inner, posX, posY, outer);
-  g.addColorStop(0.0, hsl(hue, 95, (mode==="deep"?72:58), alpha));
-  g.addColorStop(0.55, hsl(hue, 95, (mode==="deep"?72:58), alpha*0.35));
-  g.addColorStop(1.0, "rgba(0,0,0,0)");
-
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(posX, posY, outer, 0, Math.PI*2);
-  ctx.fill();
+  return osc;
 }
 
 function drawCore(c, t){
+  if(isHiddenByCollapseCore(c)) return;
+
   const pos = worldToScreen(c.x, c.y);
   const rWorld = (c.r ?? 26);
   const r = rWorld * view.z;
@@ -972,14 +1025,28 @@ function drawCore(c, t){
   const hue = c.hue ?? 210;
   const isSel = selected && selected.type==="core" && selected.id===c.id;
 
-  // дымка вокруг
-  drawSmokyGlow(pos.x, pos.y, r, c.id, hue, t, isSel);
+  const fill = (mode==="deep") ? hsl(hue, 88, 62, 0.96) : hsl(hue, 76, 50, 0.94);
 
-  const fill = (mode==="deep") ? hsl(hue, 85, 65, 0.96) : hsl(hue, 70, 46, 0.92);
+  // дымка: несколько концентрических “пушистых” слоёв (фикс. в экране)
+  const osc = glowProfile(c.id, t);
+  const baseHalo = 18 + 6*osc;  // px
+  const haloA = (mode==="deep") ? 0.16 : 0.12;
 
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for(let i=0;i<3;i++){
+    const rr = r + baseHalo + i*10;
+    const aa = haloA * (1 - i*0.28) * (isSel ? 1.25 : 1.0);
+    ctx.fillStyle = hsl(hue, 92, 70, aa);
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, rr, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // сама идея
   ctx.shadowColor = fill;
-  ctx.shadowBlur = (mode==="deep" ? 22 : 14) + (isSel ? 8 : 0);
-
+  ctx.shadowBlur = (mode==="deep" ? 18 : 12) + (isSel ? 8 : 0); // фикс. px
   ctx.fillStyle = fill;
   ctx.beginPath();
   ctx.arc(pos.x, pos.y, r, 0, Math.PI*2);
@@ -989,18 +1056,17 @@ function drawCore(c, t){
   const label = (c.title ?? "").trim();
   if(label){
     ctx.font = `${Math.max(12, 12*view.z)}px Inter, system-ui`;
-    ctx.fillStyle = (mode==="deep") ? "rgba(234,242,255,0.86)" : "rgba(18,22,35,0.76)";
+    ctx.fillStyle = (mode==="deep") ? "rgba(234,242,255,0.86)" : "rgba(18,22,35,0.78)";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-
-    // шире, чтобы не было ощущения "один word на строку"
-    const maxW = clamp(Math.max(220, r*3.8), 220, 520);
-
+    const maxW = Math.max(150, r*3.6); /* шире */
     drawWrappedLabel(label, pos.x, pos.y + r + 10, maxW, Math.max(14, 14*view.z), 2);
   }
 }
 
 function drawNode(n, t){
+  if(isHiddenByCollapseNode(n)) return;
+
   const pos = worldToScreen(n.x, n.y);
   const rWorld = (n.r ?? 11);
   const r = rWorld * view.z;
@@ -1008,13 +1074,27 @@ function drawNode(n, t){
   const hue = n.hue ?? 205;
   const isSel = selected && selected.type==="node" && selected.id===n.id;
 
-  drawSmokyGlow(pos.x, pos.y, r, n.id, hue, t, isSel);
+  // одинаковая “сочность” как у core (без мутности)
+  const fill = (mode==="deep") ? hsl(hue, 90, 62, 0.96) : hsl(hue, 78, 50, 0.94);
 
-  const fill = (mode==="deep") ? hsl(hue, 92, 76, 0.95) : hsl(hue, 78, 54, 0.90);
+  const osc = glowProfile(n.id, t);
+  const baseHalo = 14 + 5*osc;
+  const haloA = (mode==="deep") ? 0.14 : 0.11;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for(let i=0;i<3;i++){
+    const rr = r + baseHalo + i*9;
+    const aa = haloA * (1 - i*0.30) * (isSel ? 1.2 : 1.0);
+    ctx.fillStyle = hsl(hue, 92, 70, aa);
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, rr, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
 
   ctx.shadowColor = fill;
-  ctx.shadowBlur = (mode==="deep" ? 16 : 12) + (isSel ? 6 : 0);
-
+  ctx.shadowBlur = (mode==="deep" ? 14 : 10) + (isSel ? 7 : 0);
   ctx.fillStyle = fill;
   ctx.beginPath();
   ctx.arc(pos.x, pos.y, r, 0, Math.PI*2);
@@ -1024,17 +1104,17 @@ function drawNode(n, t){
   const label = (n.title ?? "").trim();
   if(label){
     ctx.font = `${Math.max(11, 11*view.z)}px Inter, system-ui`;
-    ctx.fillStyle = (mode==="deep") ? "rgba(234,242,255,0.78)" : "rgba(18,22,35,0.68)";
+    ctx.fillStyle = (mode==="deep") ? "rgba(234,242,255,0.80)" : "rgba(18,22,35,0.70)";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-
-    const maxW = clamp(Math.max(210, r*3.6), 210, 500);
+    const maxW = Math.max(140, r*3.4); /* шире */
     drawWrappedLabel(label, pos.x, pos.y + r + 8, maxW, Math.max(13, 13*view.z), 2);
   }
 }
 
 function drawWorld(t){
   drawEdges(t);
+
   for(const c of state.cores) drawCore(c, t);
   for(const n of state.nodes) drawNode(n, t);
 
@@ -1052,8 +1132,11 @@ function drawWorld(t){
 
 /* ---------- Hit-test ---------- */
 function hitTest(sx, sy){
+  // nodes first
   for(let i=state.nodes.length-1;i>=0;i--){
     const n = state.nodes[i];
+    if(isHiddenByCollapseNode(n)) continue;
+
     const p = worldToScreen(n.x, n.y);
     const r = (n.r ?? 11) * view.z;
     const dx = sx - p.x, dy = sy - p.y;
@@ -1072,10 +1155,13 @@ function hitTest(sx, sy){
 /* ---------- Creation ---------- */
 function createCoreAtWorld(wx, wy){
   const hue = Math.round(rand(190, 235));
-  const c = {id: uid("core"), title:"Новый мир", bodyHtml:"", x: wx, y: wy, r: 26, hue};
+  const c = {id: uid("core"), title:"Новый мир", bodyHtml:"", x: wx, y: wy, r: 26, hue, collapsed:false};
   state.cores.push(c);
   ensureGlow(c.id);
+
+  recomputeAutoRadii();
   save();
+
   selected = {type:"core", id:c.id};
   addPulse(selected);
 }
@@ -1099,11 +1185,15 @@ function createNode(parentType, parentId, coreId){
     x: base.x + Math.cos(angle)*dist,
     y: base.y + Math.sin(angle)*dist,
     r: 11,
-    hue
+    hue,
+    collapsed:false
   };
   state.nodes.push(n);
   ensureGlow(n.id);
+
+  recomputeAutoRadii();
   save();
+
   selected = {type:"node", id:n.id};
   addPulse(selected);
 }
@@ -1112,9 +1202,6 @@ function createNode(parentType, parentId, coreId){
 function openPanel(){
   elPanel.classList.add("open");
   refreshPanelFields();
-
-  // после открытия есть реальная высота -> центрируем точно
-  requestAnimationFrame(()=> positionPanelRightOfSelected());
 }
 function closePanel(){
   elPanel.classList.remove("open");
@@ -1143,8 +1230,8 @@ function refreshPanelFields(){
   elEditTitle.value = obj.title ?? "";
   elEditBody.innerHTML  = obj.bodyHtml ?? "";
 
-  // синк активных кнопок align (по computed style)
-  syncAlignButtons();
+  // collapse icon
+  elBtnCollapse.textContent = obj.collapsed ? "▸" : "▾";
 }
 
 function scheduleEditSave(){
@@ -1157,14 +1244,12 @@ function scheduleEditSave(){
     obj.title = elEditTitle.value;
     obj.bodyHtml = elEditBody.innerHTML;
 
+    recomputeAutoRadii();
     save();
   }, 120);
 }
 elEditTitle.addEventListener("input", scheduleEditSave);
-elEditBody.addEventListener("input", ()=>{
-  scheduleEditSave();
-  syncAlignButtons(true);
-});
+elEditBody.addEventListener("input", scheduleEditSave);
 
 /* delete */
 function deleteSelected(){
@@ -1191,54 +1276,59 @@ function deleteSelected(){
   }
 
   selected = null;
+
+  recomputeAutoRadii();
   save();
+
   closePanel();
 }
 elBtnDelete.onclick = deleteSelected;
+
+/* collapse/expand */
+function toggleCollapseSelected(){
+  if(!selected) return;
+  const obj = getSelectedObj();
+  if(!obj) return;
+  obj.collapsed = !obj.collapsed;
+  recomputeAutoRadii();
+  save();
+  refreshPanelFields();
+}
+elBtnCollapse.onclick = toggleCollapseSelected;
 
 /* ---------- Rich text ---------- */
 function rt(cmd, val=null){
   document.execCommand(cmd, false, val);
   elEditBody.focus();
   scheduleEditSave();
-  syncAlignButtons(true);
 }
 bBold.onclick   = ()=> rt("bold");
 bItalic.onclick = ()=> rt("italic");
 bUnder.onclick  = ()=> rt("underline");
+bLeft.onclick   = ()=> rt("justifyLeft");
+bCenter.onclick = ()=> rt("justifyCenter");
+bRight.onclick  = ()=> rt("justifyRight");
 
-bLeft.onclick   = ()=> { rt("justifyLeft");   setAlignActive("left"); };
-bCenter.onclick = ()=> { rt("justifyCenter"); setAlignActive("center"); };
-bRight.onclick  = ()=> { rt("justifyRight");  setAlignActive("right"); };
+bLink.onclick = ()=>{
+  const url = prompt("Вставить ссылку (URL):");
+  if(!url) return;
+  // если нет выделения — создадим ссылку как текст URL
+  const sel = window.getSelection();
+  if(sel && sel.toString().trim().length === 0){
+    document.execCommand("insertText", false, url);
+  }
+  rt("createLink", url);
+};
 
-function setAlignActive(which){
-  bLeft.classList.toggle("active", which==="left");
-  bCenter.classList.toggle("active", which==="center");
-  bRight.classList.toggle("active", which==="right");
-}
-function syncAlignButtons(tryDetect=false){
-  // execCommand не всегда возвращает корректно — делаем мягко:
-  // пытаемся понять по ближайшему блоку/стилю, иначе оставляем как есть
-  if(!tryDetect) return;
-  try{
-    const sel = window.getSelection();
-    if(!sel || sel.rangeCount===0) return;
-    let node = sel.anchorNode;
-    if(!node) return;
-    if(node.nodeType===3) node = node.parentNode;
-    if(!node) return;
-    // ищем блок внутри editor
-    let cur = node;
-    while(cur && cur !== elEditBody && cur.parentNode){
-      cur = cur.parentNode;
-    }
-    const style = window.getComputedStyle(node);
-    const ta = style.textAlign;
-    if(ta.includes("right")) setAlignActive("right");
-    else if(ta.includes("center")) setAlignActive("center");
-    else setAlignActive("left");
-  } catch(e){}
-}
+// ctrl/cmd click по ссылке открывает
+elEditBody.addEventListener("click", (e)=>{
+  const a = e.target && e.target.closest ? e.target.closest("a") : null;
+  if(!a) return;
+  if(e.ctrlKey || e.metaKey){
+    e.preventDefault();
+    window.open(a.href, "_blank", "noopener,noreferrer");
+  }
+});
 
 /* ---------- Search ---------- */
 function openSearch(){
@@ -1311,22 +1401,18 @@ window.addEventListener("keydown",(e)=>{
     }
     return;
   }
-
-  // Важность размером
-  if(!isTypingTarget(document.activeElement) && selected){
-    if(e.key==="[" || e.key==="]"){
-      e.preventDefault();
-      changeSelectedRadius(e.key==="]" ? +2 : -2);
-      return;
-    }
+  if(!isTypingTarget(document.activeElement) && (e.key==="c" || e.key==="C")){
+    e.preventDefault();
+    toggleCollapseSelected();
+    return;
   }
 });
 
 /* ---------- Mode toggle ---------- */
-elToggle.addEventListener("click", ()=>{
+elToggle.onclick = ()=>{
   mode = (mode==="deep") ? "focus" : "deep";
   syncUITheme();
-});
+};
 
 /* ---------- Panel position: всегда справа от круга ---------- */
 function getObjScreenRadius(sel, zOverride=null){
@@ -1337,12 +1423,16 @@ function getObjScreenRadius(sel, zOverride=null){
   return rw * zr;
 }
 
+/* главное: приклеить справа, без налезания; центрируем по идее */
 function positionPanelRightOfSelected(opts={}){
   if(!selected) return;
   const obj = getSelectedObj();
   if(!obj) return;
 
   const mobile = window.innerWidth < 520;
+  const rectW = parseInt(elPanel.style.width || "360",10) || 360;
+  const rectH = elPanel.getBoundingClientRect().height || 300;
+
   if(mobile){
     elPanel.style.left = "12px";
     elPanel.style.top = "";
@@ -1353,22 +1443,17 @@ function positionPanelRightOfSelected(opts={}){
   }
 
   elPanel.style.bottom = "";
-  elPanel.style.width = "360px";
+  if(!elPanel.style.width) elPanel.style.width = "360px";
 
   const p = opts.predictedPos || worldToScreen(obj.x, obj.y);
   const zPred = (opts.predictedZ != null) ? opts.predictedZ : view.z;
-
-  const rectW = 360;
-  // если панель открыта — берём реальную высоту
-  const rectH = elPanel.classList.contains("open")
-    ? Math.max(220, Math.min(560, elPanel.getBoundingClientRect().height))
-    : 300;
 
   const r = getObjScreenRadius(selected, zPred);
   const gap = 22;
 
   let left = p.x + r + gap;
-  let top  = p.y - rectH/2; // центрируем по кругу
+  // строго по центру круга
+  let top  = p.y - rectH * 0.5;
 
   if(left + rectW > window.innerWidth - 12){
     left = p.x - r - gap - rectW;
@@ -1383,14 +1468,16 @@ function positionPanelRightOfSelected(opts={}){
 
 /* panel drag (desktop) */
 let dragPanel = {on:false, ox:0, oy:0};
-elPanelDrag.addEventListener("mousedown",(e)=>{
+elPanelDrag.addEventListener("pointerdown",(e)=>{
   if(window.innerWidth < 520) return;
+  if(e.pointerType === "touch") return; // на таче не таскаем панель (чтобы не конфликтовать)
   dragPanel.on = true;
+  elPanelDrag.setPointerCapture(e.pointerId);
   const rect = elPanel.getBoundingClientRect();
   dragPanel.ox = e.clientX - rect.left;
   dragPanel.oy = e.clientY - rect.top;
 });
-window.addEventListener("mousemove",(e)=>{
+window.addEventListener("pointermove",(e)=>{
   if(!dragPanel.on) return;
   const rect = elPanel.getBoundingClientRect();
   const panelW = rect.width;
@@ -1405,102 +1492,238 @@ window.addEventListener("mousemove",(e)=>{
   elPanel.style.left = left+"px";
   elPanel.style.top  = top+"px";
 });
-window.addEventListener("mouseup",()=> dragPanel.on=false);
+window.addEventListener("pointerup",(e)=>{
+  dragPanel.on=false;
+});
 
-/* ---------- Pointer / Touch (пан/пинч) + mouse pan ---------- */
-const pointers = new Map(); // pointerId -> {x,y}
-let gesture = { mode:"none", lastX:0, lastY:0, moved:false, dragSel:null, startDist:0, startZ:1, startMid:{x:0,y:0}, startWorldMid:{x:0,y:0} };
+/* panel resize */
+let resizePanel = {on:false, sx:0, sy:0, w:0, h:0};
+elPanelResize.addEventListener("pointerdown",(e)=>{
+  e.preventDefault();
+  e.stopPropagation();
+  resizePanel.on = true;
+  elPanelResize.setPointerCapture(e.pointerId);
+
+  const rect = elPanel.getBoundingClientRect();
+  resizePanel.sx = e.clientX;
+  resizePanel.sy = e.clientY;
+  resizePanel.w = rect.width;
+  resizePanel.h = rect.height;
+});
+window.addEventListener("pointermove",(e)=>{
+  if(!resizePanel.on) return;
+  const dx = e.clientX - resizePanel.sx;
+  const dy = e.clientY - resizePanel.sy;
+
+  const newW = clamp(resizePanel.w + dx, 280, Math.min(520, window.innerWidth - 24));
+  const newH = clamp(resizePanel.h + dy, 220, Math.min(700, window.innerHeight - 24));
+
+  elPanel.style.width = Math.round(newW) + "px";
+  elPanel.style.maxHeight = "none";
+  elPanel.style.height = Math.round(newH) + "px";
+});
+window.addEventListener("pointerup",()=>{ resizePanel.on=false; });
+
+/* ---------- Pointer/gesture system (desktop + iPad) ---------- */
+const pointers = new Map(); // pointerId -> {x,y,type}
+const gesture = {
+  mode: "none", // none | pan | dragObject | pinch
+  active: false,
+  dragSel: null,
+  lastX: 0,
+  lastY: 0,
+  downX: 0,
+  downY: 0,
+  moved: false,
+  // pinch
+  startDist: 0,
+  startZ: 1,
+  startViewX: 0,
+  startViewY: 0,
+  startMidX: 0,
+  startMidY: 0,
+};
+
+/* long press for touch focus */
+let longPressTimer = null;
+let longPressTarget = null;
+function longPressCancel(){
+  if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; }
+  longPressTarget = null;
+}
+function longPressSchedule(hit, clientX, clientY){
+  longPressCancel();
+  longPressTarget = { hit, clientX, clientY };
+  longPressTimer = setTimeout(()=>{
+    if(!longPressTarget) return;
+    selected = longPressTarget.hit;
+    addPulse(selected);
+    focusToSelected(true);
+    longPressCancel();
+  }, 380);
+}
+
+/* double tap detection (touch + mouse left dblclick fallback) */
+let lastTap = {t:0, x:0, y:0, hitKey:""};
+function isNear(a,b,eps){ return Math.hypot(a.x-b.x, a.y-b.y) <= eps; }
+
+function handleDoubleTap(clientX, clientY){
+  const hit = hitTest(clientX, clientY);
+  if(!hit){
+    const wpos=screenToWorld(clientX,clientY);
+    createCoreAtWorld(wpos.x, wpos.y);
+    return;
+  }
+  selected = hit;
+  addPulse(selected);
+
+  if(hit.type==="core"){
+    createNode("core", hit.id, hit.id);
+    // создание — не обязано открывать редактор; но ты хочешь фокус при создании: оставляем
+    focusToSelected(false);
+    return;
+  }
+  if(hit.type==="node"){
+    const n = getNode(hit.id);
+    if(!n) return;
+    createNode("node", n.id, n.coreId);
+    focusToSelected(false);
+    return;
+  }
+}
+
 const DRAG_THRESHOLD = 6;
 
-function startDragObject(sel){
-  gesture.mode = "dragObject";
-  gesture.dragSel = sel;
-}
-function startPan(){
-  gesture.mode = "pan";
-  gesture.dragSel = null;
-}
+canvas.addEventListener("pointerdown",(e)=>{
+  // не даём браузеру скроллить/зумить
+  e.preventDefault();
 
-function onPointerDown(e){
-  // захват pointer
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY, type:e.pointerType});
   canvas.setPointerCapture(e.pointerId);
-  pointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
 
-  // если два пальца — pinch
+  // если 2 пальца — pinch
   if(pointers.size === 2){
+    gesture.mode = "pinch";
+    gesture.active = true;
+    gesture.moved = false;
+
     const pts = Array.from(pointers.values());
     const dx = pts[0].x - pts[1].x;
     const dy = pts[0].y - pts[1].y;
     gesture.startDist = Math.hypot(dx,dy);
     gesture.startZ = view.z;
-    gesture.startMid = { x: (pts[0].x + pts[1].x)/2, y: (pts[0].y + pts[1].y)/2 };
-    gesture.startWorldMid = screenToWorld(gesture.startMid.x, gesture.startMid.y);
-    gesture.mode = "pinch";
-    gesture.moved = true;
+    gesture.startViewX = view.x;
+    gesture.startViewY = view.y;
+    gesture.startMidX = (pts[0].x + pts[1].x)/2;
+    gesture.startMidY = (pts[0].y + pts[1].y)/2;
+
+    longPressCancel();
     return;
   }
 
-  // один указатель: мышь/палец
+  // один указатель
+  gesture.active = true;
   gesture.lastX = e.clientX;
   gesture.lastY = e.clientY;
+  gesture.downX = e.clientX;
+  gesture.downY = e.clientY;
   gesture.moved = false;
 
-  // Средняя кнопка мыши = панорама (как раньше)
+  // MMB pan (desktop)
   if(e.pointerType === "mouse" && e.button === 1){
-    startPan();
+    gesture.mode = "pan";
+    gesture.dragSel = null;
+    longPressCancel();
+    closePanel();
     return;
   }
 
-  // Левая кнопка мыши / палец: выбрать/тащить или панить фон
-  if(e.pointerType === "mouse" && e.button !== 0) return;
+  // RMB focus (desktop)
+  if(e.pointerType === "mouse" && e.button === 2){
+    const hit = hitTest(e.clientX, e.clientY);
+    if(hit){
+      selected = hit;
+      addPulse(selected);
+      focusToSelected(true);
+    }
+    longPressCancel();
+    return;
+  }
 
+  // LMB / touch: выделение + перетаскивание; на пустоте — панорама
   const hit = hitTest(e.clientX, e.clientY);
   if(hit){
     selected = hit;
     addPulse(selected);
-    startDragObject(hit);
+    gesture.mode = "dragObject";
+    gesture.dragSel = hit;
+
+    // long-press только для touch/pen
+    if(e.pointerType !== "mouse"){
+      longPressSchedule(hit, e.clientX, e.clientY);
+    }
   }else{
     selected = null;
+    gesture.mode = "pan";
+    gesture.dragSel = null;
+    longPressCancel();
     closePanel();
-    startPan();
   }
-}
+},{passive:false});
 
-function onPointerMove(e){
+// запретим контекстное меню (иначе iOS/desktop мешает)
+canvas.addEventListener("contextmenu",(e)=>{ e.preventDefault(); });
+
+canvas.addEventListener("pointermove",(e)=>{
   if(!pointers.has(e.pointerId)) return;
-  const prev = pointers.get(e.pointerId);
-  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
 
-  if(gesture.mode === "pinch" && pointers.size === 2){
+  // обновим pointer
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY, type:e.pointerType});
+
+  // pinch
+  if(gesture.mode === "pinch" && pointers.size >= 2){
     const pts = Array.from(pointers.values());
     const dx = pts[0].x - pts[1].x;
     const dy = pts[0].y - pts[1].y;
     const dist = Math.max(1, Math.hypot(dx,dy));
-    const ratio = dist / Math.max(1, gesture.startDist);
+    const midX = (pts[0].x + pts[1].x)/2;
+    const midY = (pts[0].y + pts[1].y)/2;
 
-    const newZ = clamp(gesture.startZ * ratio, 0.05, 12.0);
+    // zoom around midpoint
+    const before = screenToWorld(midX, midY);
 
-    // сохранить midpoint на месте
-    const mid = { x: (pts[0].x + pts[1].x)/2, y: (pts[0].y + pts[1].y)/2 };
-    const worldMid = gesture.startWorldMid;
+    const factor = dist / gesture.startDist;
+    view.z = clamp(gesture.startZ * factor, 0.02, 30.0);
 
-    view.z = newZ;
-    view.x = mid.x - worldMid.x * view.z;
-    view.y = mid.y - worldMid.y * view.z;
+    const after = screenToWorld(midX, midY);
+    // панорама: сохраняем точку под пальцами
+    view.x += (after.x - before.x) * view.z;
+    view.y += (after.y - before.y) * view.z;
+
+    // плюс перенос midpoint (2-finger pan)
+    const panDX = midX - gesture.startMidX;
+    const panDY = midY - gesture.startMidY;
+    view.x = gesture.startViewX + panDX;
+    view.y = gesture.startViewY + panDY;
 
     save();
+    longPressCancel();
     return;
   }
 
-  // обычный move
-  const dx = e.clientX - (gesture.lastX ?? e.clientX);
-  const dy = e.clientY - (gesture.lastY ?? e.clientY);
-  gesture.lastX = e.clientX;
-  gesture.lastY = e.clientY;
+  // single pointer move
+  if(!gesture.active) return;
 
-  if(Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD){
+  const sx = e.clientX, sy = e.clientY;
+  const dx = sx - gesture.lastX, dy = sy - gesture.lastY;
+
+  if(Math.abs(sx-gesture.downX) > DRAG_THRESHOLD || Math.abs(sy-gesture.downY) > DRAG_THRESHOLD){
     gesture.moved = true;
+    if(gesture.mode === "dragObject") longPressCancel();
   }
+
+  gesture.lastX = sx;
+  gesture.lastY = sy;
 
   if(gesture.mode === "pan"){
     view.x += dx;
@@ -1510,131 +1733,65 @@ function onPointerMove(e){
   }
 
   if(gesture.mode === "dragObject" && gesture.dragSel){
-    const worldDelta={x: dx/view.z, y: dy/view.z};
+    const worldDelta = {x: dx/view.z, y: dy/view.z};
     if(gesture.dragSel.type==="core"){
       const c=getCore(gesture.dragSel.id);
-      if(c){ c.x+=worldDelta.x; c.y+=worldDelta.y; save(); }
+      if(c){ c.x += worldDelta.x; c.y += worldDelta.y; save(); }
     }else{
       const n=getNode(gesture.dragSel.id);
-      if(n){ n.x+=worldDelta.x; n.y+=worldDelta.y; save(); }
+      if(n){ n.x += worldDelta.x; n.y += worldDelta.y; save(); }
     }
   }
-}
+},{passive:false});
 
-function onPointerUp(e){
-  pointers.delete(e.pointerId);
+canvas.addEventListener("pointerup",(e)=>{
+  // double tap/tap logic (touch & mouse left)
+  const wasTouchLike = (e.pointerType !== "mouse");
+  const wasLMB = (e.pointerType === "mouse" && e.button === 0);
 
-  // если отпустили и остался один палец — сбрасываем pinch в pan
-  if(gesture.mode === "pinch" && pointers.size === 1){
-    gesture.mode = "pan";
-    const remain = Array.from(pointers.values())[0];
-    gesture.lastX = remain.x;
-    gesture.lastY = remain.y;
-  }
-  if(pointers.size === 0){
-    gesture.mode = "none";
-    gesture.dragSel = null;
-  }
-}
+  // tap считается, если не было движения
+  const isTap = !gesture.moved;
 
-canvas.addEventListener("pointerdown", onPointerDown, {passive:false});
-canvas.addEventListener("pointermove", onPointerMove, {passive:false});
-canvas.addEventListener("pointerup", onPointerUp, {passive:false});
-canvas.addEventListener("pointercancel", onPointerUp, {passive:false});
-canvas.addEventListener("pointerleave", onPointerUp, {passive:false});
-
-/* zoom wheel */
-canvas.addEventListener("wheel",(e)=>{
-  if(e.altKey){
+  if(isTap && (wasTouchLike || wasLMB)){
+    const now = performance.now();
     const hit = hitTest(e.clientX, e.clientY);
-    if(hit){
-      e.preventDefault();
-      selected = hit;
-      addPulse(selected);
-      changeSelectedRadius(e.deltaY < 0 ? +2 : -2);
-      return;
+    const key = hit ? (hit.type+":"+hit.id) : "empty";
+
+    if(now - lastTap.t < 320 && isNear({x:e.clientX,y:e.clientY}, {x:lastTap.x,y:lastTap.y}, 22) && key === lastTap.hitKey){
+      // double tap
+      handleDoubleTap(e.clientX, e.clientY);
+      lastTap = {t:0,x:0,y:0,hitKey:""};
+    }else{
+      lastTap = {t: now, x: e.clientX, y: e.clientY, hitKey: key};
     }
   }
 
+  pointers.delete(e.pointerId);
+  if(pointers.size < 2 && gesture.mode === "pinch"){
+    gesture.mode = "none";
+  }
+
+  gesture.active = false;
+  gesture.dragSel = null;
+  longPressCancel();
+},{passive:false});
+
+/* wheel zoom (desktop) */
+canvas.addEventListener("wheel",(e)=>{
   e.preventDefault();
+
   const sx=e.clientX, sy=e.clientY;
   const before=screenToWorld(sx,sy);
 
   const zoomFactor=Math.exp(-e.deltaY*0.0012);
-  view.z = clamp(view.z*zoomFactor, 0.05, 12.0);
+  view.z = clamp(view.z*zoomFactor, 0.02, 30.0);
 
-  // сохранить точку под курсором
   const after=screenToWorld(sx,sy);
   view.x += (after.x-before.x)*view.z;
   view.y += (after.y-before.y)*view.z;
 
   save();
 },{passive:false});
-
-/* dblclick = создание */
-canvas.addEventListener("dblclick",(e)=>{
-  const sx=e.clientX, sy=e.clientY;
-  const hit=hitTest(sx,sy);
-
-  if(!hit){
-    const wpos=screenToWorld(sx,sy);
-    createCoreAtWorld(wpos.x, wpos.y);
-    return;
-  }
-
-  selected = hit;
-  addPulse(selected);
-
-  if(hit.type==="core"){
-    createNode("core", hit.id, hit.id);
-    focusToSelected(true);
-    return;
-  }
-
-  if(hit.type==="node"){
-    const n = getNode(hit.id);
-    if(!n) return;
-    createNode("node", n.id, n.coreId);
-    focusToSelected(true);
-    return;
-  }
-});
-
-/* ---------- RMB single/double logic ---------- */
-let rmbTimer = null;
-let rmbCount = 0;
-let rmbLastHit = null;
-
-canvas.addEventListener("contextmenu",(e)=>{
-  e.preventDefault();
-
-  const hit = hitTest(e.clientX, e.clientY);
-  if(!hit) return;
-
-  selected = hit;
-  addPulse(selected);
-  rmbLastHit = hit;
-  rmbCount++;
-
-  if(rmbTimer) clearTimeout(rmbTimer);
-
-  rmbTimer = setTimeout(()=>{
-    if(rmbCount >= 2){
-      if(rmbLastHit.type==="core"){
-        createNode("core", rmbLastHit.id, rmbLastHit.id);
-      }else{
-        const n = getNode(rmbLastHit.id);
-        if(n) createNode("node", n.id, n.coreId);
-      }
-      save();
-    }else{
-      focusToSelected(true);
-    }
-    rmbCount = 0;
-    rmbLastHit = null;
-    rmbTimer = null;
-  }, 280);
-});
 
 /* ---------- Focus animation (и предикт панели заранее) ---------- */
 function easeInOutCubic(x){
@@ -1645,9 +1802,10 @@ function focusToSelected(openEditor=true){
   const obj = getSelectedObj();
   if(!obj) return;
 
-  const targetZ = clamp(selected.type==="node" ? 8.5 : 6.0, 0.05, 12.0);
+  // очень ближе, как ты просил
+  const targetZ = clamp(selected.type==="node" ? 18.0 : 14.0, 0.02, 30.0);
 
-  // объект летит влево, панель справа
+  // фокус слева, панель справа
   const targetScreenX = Math.floor(window.innerWidth * 0.30);
   const targetScreenY = Math.floor(window.innerHeight * 0.52);
 
@@ -1662,7 +1820,7 @@ function focusToSelected(openEditor=true){
     positionPanelRightOfSelected({predictedPos, predictedZ: targetZ});
   }
 
-  const dur = 640;
+  const dur = 680;
   const t0 = performance.now();
 
   function step(now){
@@ -1677,6 +1835,7 @@ function focusToSelected(openEditor=true){
     else{
       save();
       if(openEditor){
+        positionPanelRightOfSelected();
         openPanel();
       }
     }
@@ -1684,37 +1843,19 @@ function focusToSelected(openEditor=true){
   requestAnimationFrame(step);
 }
 
-/* ---------- Size importance ---------- */
-function changeSelectedRadius(delta){
-  const obj = getSelectedObj();
-  if(!obj) return;
+/* ---------- RMB: уже обработан в pointerdown (button 2) ---------- */
 
-  const minR = (selected.type==="core") ? 18 : 7;
-  const maxR = (selected.type==="core") ? 70 : 34;
-  obj.r = clamp((obj.r ?? (selected.type==="core"?26:11)) + delta, minR, maxR);
-  save();
+/* ---------- dblclick: на десктопе пусть работает как “создание” тоже ---------- */
+canvas.addEventListener("dblclick",(e)=>{
+  // чтобы браузер не делал зум
+  e.preventDefault();
+  handleDoubleTap(e.clientX, e.clientY);
+},{passive:false});
 
-  if(elPanel.classList.contains("open")) positionPanelRightOfSelected();
-}
-
-/* ---------- Click to open panel (без мусора после drag) ---------- */
-canvas.addEventListener("click",(e)=>{
-  // если был drag — не открываем панель
-  if(gesture.moved) return;
-
-  // только ЛКМ / tap
-  if(e.pointerType === "mouse" && e.button !== 0) return;
-
-  const hit = hitTest(e.clientX, e.clientY);
-  if(hit){
-    selected = hit;
-    addPulse(selected);
-    positionPanelRightOfSelected();
-    openPanel();
-  }else{
-    selected = null;
-    closePanel();
-  }
+/* ---------- Mode toggle ---------- */
+elToggle.addEventListener("click", ()=>{
+  mode = (mode==="deep") ? "focus" : "deep";
+  syncUITheme();
 });
 
 /* ---------- Frame ---------- */
